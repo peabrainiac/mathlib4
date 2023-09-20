@@ -3,10 +3,11 @@ import Mathlib.Geometry.Manifold.VectorBundle.Hom
 import Mathlib.Geometry.Manifold.Instances.Real
 import Mathlib.Geometry.Manifold.Diffeomorph
 import Mathlib.MeasureTheory.Integral.IntervalIntegral
+import Mathlib.MeasureTheory.Measure.MeasureSpace
 
 open scoped Manifold RealInnerProductSpace Uniformity
 
-universe uE uM
+universe u_1 u_2 uE uM
 
 noncomputable section
 
@@ -158,33 +159,70 @@ lemma pathderiv_of_symm {p q : M} {γ : Path p q} {t : unitInterval} : pathderiv
   simp [mfderiv_zero_of_not_mdifferentiableAt hγ,mfderiv_zero_of_not_mdifferentiableAt hγ']
 
 def length [Metric I M] {p q : M} (γ : Path p q) :=
-  ∫ t in unitInterval, if ht : t∈unitInterval then ‖pathderiv I M γ ⟨t,ht⟩‖ else 0
+  ∫ t, ‖pathderiv I M γ t‖
 
-theorem length_nonneg [Metric I M] {p q : M} (γ : Path p q) : 0 ≤ length I M γ := by
-  have hf : 0 ≤ (fun (t:ℝ) => if ht : t ∈ unitInterval then ‖pathderiv I M γ ⟨t,ht⟩‖ else 0) := fun t => by
-    by_cases ht : 0 ≤ t ∧ t ≤ 1
-    simp [ht]
-    simp [ht]
-  exact MeasureTheory.integral_nonneg hf
+theorem length_nonneg [Metric I M] {p q : M} (γ : Path p q) : 0 ≤ length I M γ :=
+  MeasureTheory.integral_nonneg (fun t => by simp)
 
 @[simp]
 theorem length_of_const [Metric I M] {p : M} : length I M (Path.refl p) = 0 := by
   simp [length,pathderiv,Path.refl]
 
+def unitInterval.symm_toMeasurableEquiv : MeasurableEquiv unitInterval unitInterval where
+  toFun := symm
+  invFun := symm
+  left_inv := by simp [Function.LeftInverse]
+  right_inv := by simp [Function.RightInverse,Function.LeftInverse]
+  measurable_toFun := continuous_symm.measurable
+  measurable_invFun := continuous_symm.measurable
+
+lemma MeasurePreserving.subtype_map_preimage {α : Type u_1} {β : Type u_2} [MeasurableSpace α]
+    [MeasurableSpace β] {μα : MeasureTheory.Measure α} {μβ : MeasureTheory.Measure β} {f : α → β}
+    (hf : MeasureTheory.MeasurePreserving f μα μβ) {s : Set β} (hs : MeasurableSet s)
+    : MeasureTheory.MeasurePreserving (Subtype.map f (fun x => (id : x ∈ f ⁻¹' s → f x ∈ s)))
+    (MeasureTheory.Measure.comap Subtype.val μα) (MeasureTheory.Measure.comap Subtype.val μβ) := by
+  have hf' := Measurable.subtype_map hf.measurable (fun x => (id : x ∈ f ⁻¹' s → f x ∈ s))
+  refine' ⟨hf',_⟩
+  apply MeasureTheory.Measure.ext; intro t ht
+  simp_rw [MeasureTheory.Measure.map_apply hf' ht]
+  have hs': (MeasureTheory.Measure.comap Subtype.val μβ) t = μβ (Subtype.val '' t)
+    := comap_subtype_coe_apply hs μβ t
+  have h : (MeasureTheory.Measure.map f μα) (Subtype.val '' t) = μα (f ⁻¹' (Subtype.val '' t))
+    := MeasureTheory.Measure.map_apply hf.measurable (MeasurableSet.subtype_image hs ht)
+  rw [comap_subtype_coe_apply (hf.measurable hs) μα,hs',←hf.map_eq,h]
+  apply congrArg μα
+  apply Set.ext; intro x
+  simp only [Set.mem_image,Set.mem_preimage,Subtype.exists,exists_and_right,exists_eq_right]
+  rfl
+
+def unitInterval.measurePreserving_symm : MeasureTheory.MeasurePreserving unitInterval.symm := by
+  have hsymm := unitInterval.continuous_symm.measurable
+  refine' ⟨hsymm,_⟩
+  apply MeasureTheory.Measure.ext; intro s hs
+  simp_rw [volume_set_coe_def,MeasureTheory.Measure.map_apply hsymm hs]
+  simp_rw [comap_subtype_coe_apply measurableSet_Icc]
+  have h : Set.image symm = Set.preimage symm :=
+    Set.image_eq_preimage_of_inverse symm_toMeasurableEquiv.left_inv symm_toMeasurableEquiv.right_inv
+  have h' : Subtype.val ∘ symm = (fun t => 1-t : ℝ → ℝ) ∘ Subtype.val := funext fun t => by simp
+  have h'' : Set.image (fun t => 1-t : ℝ → ℝ) = Set.preimage (fun t => 1-t : ℝ → ℝ) :=
+    Set.image_eq_preimage_of_inverse (by simp [Function.LeftInverse]) (by simp [Function.RightInverse,Function.LeftInverse])
+  have h''' : MeasureTheory.MeasurePreserving (fun t => 1-t : ℝ → ℝ) := MeasureTheory.Measure.measurePreserving_sub_left _ 1
+  rw [←h,←Set.image_comp,h',Set.image_comp,h'']
+  rw [←MeasureTheory.Measure.map_apply h'''.measurable (MeasurableSet.subtype_image measurableSet_Icc hs)]
+  rw [h'''.map_eq]
+
+@[simp]
 theorem length_of_symm [Metric I M] {p q : M} {γ : Path p q} : length I M (Path.symm γ) = length I M γ := by
   simp_rw [length,pathderiv_of_symm,norm_neg]
-  simp_rw [unitInterval.symm,Subtype.coe_mk]
-  simp?
-  sorry
+  refine' MeasureTheory.MeasurePreserving.integral_comp _ _ (fun t => ‖pathderiv I M γ t‖)
+  exact unitInterval.measurePreserving_symm
+  exact unitInterval.symm_toMeasurableEquiv.measurableEmbedding
 
 class RiemannianManifold extends Metric I M where
   edist : M → M → ENNReal-- := fun p q => ⨅ (γ : Path p q) (hγ : Smooth (𝓡∂ 1) I γ), ENNReal.some ⟨length I M γ,length_nonneg I M γ⟩
   edist_metric : ∀ p q, edist p q = ⨅ (γ : Path p q) (hγ : Smooth (𝓡∂ 1) I γ), ENNReal.some ⟨length I M γ,length_nonneg I M γ⟩
   toUniformSpace : UniformSpace M
   uniformity_edist : 𝓤 M = ⨅ ε > 0, Filter.principal { p : M × M | edist p.1 p.2 < ε }
-
---def RiemannianManifold.toEDist [iM : RiemannianManifold I M] : EDist M :=
-  --⟨iM.edist⟩
 
 def RiemannianManifold.toEMetricSpace [iM : RiemannianManifold I M] : EMetricSpace M where
   edist p q := iM.edist p q
