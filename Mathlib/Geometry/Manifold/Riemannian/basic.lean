@@ -5,7 +5,7 @@ import Mathlib.Geometry.Manifold.Diffeomorph
 import Mathlib.MeasureTheory.Integral.IntervalIntegral
 import Mathlib.MeasureTheory.Measure.MeasureSpace
 
-open scoped Manifold RealInnerProductSpace Uniformity
+open scoped Classical Manifold RealInnerProductSpace Uniformity
 
 universe u_1 u_2 uE uM
 
@@ -63,7 +63,7 @@ lemma unitInterval.symm_comp_symm : unitInterval.symm ∘ unitInterval.symm = @i
   simp [Function.funext_iff]
 
 lemma unitInterval.smooth_symm : Smooth (𝓡∂ 1) (𝓡∂ 1) unitInterval.symm := fun t => by
-  refine' ⟨unitInterval.continuous_symm.continuousWithinAt,_⟩
+  refine' ⟨continuous_symm.continuousWithinAt,_⟩
   have hS : ∀ s:ℝ, s<1 → {x:EuclideanSpace ℝ (Fin 1) | x 0 ≤ 1} ∈ nhds (fun i => s:EuclideanSpace ℝ (Fin 1)) := fun s hs => by
     have  hS'' : ({x | x 0 ≤ 1} : Set (Fin 1 → ℝ)) = Set.pi Set.univ (fun i => Set.Iic 1) := by
       simp [Set.pi,Unique.forall_iff]
@@ -136,7 +136,7 @@ lemma unitInterval.mfderiv_symm {t : unitInterval} {x : EuclideanSpace ℝ (Fin 
   simp [ContinuousLinearMap.id]
   exact False.rec (ht' (lt_of_lt_of_le zero_lt_one (le_of_not_lt ht)))
 
-lemma symm_mdifferentiableAt_iff {p q : M} {γ : Path p q} {t : unitInterval} :
+lemma Path.symm_mdifferentiableAt_iff {p q : M} {γ : Path p q} {t : unitInterval} :
     MDifferentiableAt (𝓡∂ 1) I γ.symm t ↔ MDifferentiableAt (𝓡∂ 1) I γ (unitInterval.symm t) := by
   have h {p q : M} (γ : Path p q) (t : unitInterval) :
       MDifferentiableAt (𝓡∂ 1) I γ.symm t → MDifferentiableAt (𝓡∂ 1) I γ (unitInterval.symm t) := fun h' => by
@@ -145,7 +145,7 @@ lemma symm_mdifferentiableAt_iff {p q : M} {γ : Path p q} {t : unitInterval} :
   have h' := unitInterval.symm_symm t ▸ (@Path.symm_symm _ _ _ _ γ) ▸ (h γ.symm (unitInterval.symm t))
   exact ⟨h γ t,h'⟩
 
-lemma pathderiv_of_symm {p q : M} {γ : Path p q} {t : unitInterval} : pathderiv I M γ.symm t =
+lemma Path.pathderiv_of_symm {p q : M} {γ : Path p q} {t : unitInterval} : pathderiv I M γ.symm t =
     -pathderiv I M γ (unitInterval.symm t) := by
   rw [pathderiv,pathderiv]
   by_cases hγ : MDifferentiableAt (𝓡∂ 1) I γ (unitInterval.symm t)
@@ -158,65 +158,118 @@ lemma pathderiv_of_symm {p q : M} {γ : Path p q} {t : unitInterval} : pathderiv
   have hγ' := (not_iff_not.mpr (symm_mdifferentiableAt_iff I M)).mpr hγ
   simp [mfderiv_zero_of_not_mdifferentiableAt hγ,mfderiv_zero_of_not_mdifferentiableAt hγ']
 
+def unitInterval.double : unitInterval → unitInterval := fun t => Set.projIcc 0 1 zero_le_one (2*t)
+
+def unitInterval.double' : unitInterval → unitInterval := fun t => Set.projIcc 0 1 zero_le_one (2*t-1)
+
+lemma unitInterval.continuous_double : Continuous unitInterval.double :=
+  continuous_projIcc.comp ((continuous_mul_left 2).comp continuous_subtype_val)
+
+lemma unitInterval.continuous_double' : Continuous unitInterval.double' :=
+  continuous_projIcc.comp (((continuous_mul_left 2).comp continuous_subtype_val).sub continuous_const)
+
+lemma unitInterval.coe_double_eq (t : unitInterval) : (unitInterval.double t) = min 1 (2*(t:ℝ)) := by
+  simp [double,Set.coe_projIcc,t.2.1]
+
+lemma unitInterval.smoothAt_double {t : unitInterval} (ht : (t : ℝ) < 1 / 2) :
+    SmoothAt (𝓡∂ 1) (𝓡∂ 1) unitInterval.double t := by
+  have hS : ∀ s:ℝ, s<1/2 → {x:EuclideanSpace ℝ (Fin 1) | x 0 ≤ 1/2} ∈ nhds (fun i => s:EuclideanSpace ℝ (Fin 1)) := fun s hs => by
+    have  hS'' : ({x | x 0 ≤ 1/2} : Set (Fin 1 → ℝ)) = Set.pi Set.univ (fun i => Set.Iic (1/2)) := by
+      simp [Set.pi,Unique.forall_iff]
+    simp_rw [EuclideanSpace,PiLp,hS'']
+    exact set_pi_mem_nhds Set.finite_univ (Unique.forall_iff.mpr (fun i => Iic_mem_nhds hs))
+  refine' ⟨continuous_double.continuousWithinAt,_⟩
+  have ht' := (lt_div_iff' zero_lt_two).mp ht
+  have ht'' : (double t).val < 1 := by simp [coe_double_eq,ht']
+  simp_rw [ContDiffWithinAtProp,Function.comp,chartAt,ChartedSpace.chartAt,Set.preimage_univ,
+      Set.univ_inter,ht'',ht.trans one_half_lt_one,ite_true,modelWithCornersEuclideanHalfSpace,
+      ModelWithCorners.mk_coe,ModelWithCorners.mk_symm,LocalEquiv.coe_symm_mk,IccLeftChart,
+      LocalHomeomorph.mk_coe,LocalHomeomorph.mk_coe_symm,LocalEquiv.coe_symm_mk,coe_double_eq,
+      Function.update_same,add_zero,sub_zero,Set.range,EuclideanHalfSpace,Subtype.exists,
+      exists_prop,exists_eq_right]
+  apply (contDiffWithinAt_inter (hS t ht)).mp
+  have hf : (fun x i ↦ 2 * (x 0) : EuclideanSpace ℝ (Fin 1) → EuclideanSpace ℝ (Fin 1)) = fun x => (2:ℝ)•x :=
+    funext fun x => funext fun i => Fin.eq_zero i ▸ rfl
+  have hf' : @ContDiffWithinAt ℝ _ (EuclideanSpace ℝ (Fin 1)) _ _ (EuclideanSpace ℝ (Fin 1))
+      _ _ ⊤ (fun x i ↦ 2 * (x 0)) ({x | 0 ≤ x 0} ∩ {x | x 0 ≤ 1 / 2}) (fun i => t) := by
+    rw [hf]
+    exact (contDiff_const_smul 2).contDiffWithinAt
+  refine' ContDiffWithinAt.congr' hf' _ ⟨t.2.1,ht.le⟩
+  exact (fun x ⟨(hx1:0≤x 0),(hx2:x 0≤1/2)⟩ => by
+    simp [hx1,hx2.trans one_half_lt_one.le,min_eq_right ((le_div_iff' zero_lt_two).mp hx2)])
+
+lemma unitInterval.double'_eq_symm_double_symm : unitInterval.double' =
+    unitInterval.symm ∘ unitInterval.double ∘ unitInterval.symm := funext fun t => by
+  have h : (2 : ℝ) - 1 = 1 := by ring
+  have h' : (1 : ℝ) - (2 - 2 * t) = 2 * t - 1 := by ring
+  simp_rw [Function.comp_apply,double,double',symm,Set.projIcc,Subtype.mk_eq_mk,mul_sub]
+  by_cases ht : 2 * (t : ℝ) ≤ 1
+  simp [ht,h ▸ (sub_le_sub_left ht 2)]
+  have  ht' := le_of_not_le ht
+  have ht'' := h ▸ (sub_le_sub_right ((mul_le_iff_le_one_right zero_lt_two).mpr t.2.2) 1)
+  simp [t.2.2,ht',min_eq_right ht'',min_eq_right (h ▸ (sub_le_sub_left ht' 2)),h']
+
+lemma unitInterval.smoothAt_double' {t : unitInterval} (ht : (t : ℝ) > 1 / 2) :
+    SmoothAt (𝓡∂ 1) (𝓡∂ 1) unitInterval.double' t := by
+  rw [unitInterval.double'_eq_symm_double_symm]
+  have ht' : (symm t : ℝ) < 1 / 2 := by rw [coe_symm_eq]; linarith
+  exact ((smooth_symm.smoothAt)).comp t ((smoothAt_double ht').comp t (smooth_symm.smoothAt))
+
+lemma Path.trans_mdifferentiableAt_left {p p' p'' : M} {γ : Path p p'} {γ' : Path p' p''}
+    {t : unitInterval} (ht : (t : ℝ) < 1 / 2)
+    (hγ : MDifferentiableAt (𝓡∂ 1) I γ (unitInterval.double t)) :
+      MDifferentiableAt (𝓡∂ 1) I (γ.trans γ') t := by
+  rw [trans,coe_mk_mk]
+  have h : MDifferentiableAt (𝓡∂ 1) I (γ ∘ unitInterval.double) t := by
+    refine' MDifferentiableAt.comp t hγ _
+    exact (unitInterval.smoothAt_double ht).mdifferentiableAt
+  refine' MDifferentiableAt.congr_of_eventuallyEq h _
+  sorry
+
+#check fun (t : unitInterval) (ht : (t : ℝ) < 1 / 2) => (⟨2*t,(unitInterval.mul_pos_mem_iff zero_lt_two).2 ⟨t.2.1,le_of_lt ht⟩⟩:unitInterval)
+
+lemma pathderiv_of_trans {p p' p'' : M} {γ : Path p p'} {γ' : Path p' p''} {t : unitInterval} :
+    pathderiv I M (γ.trans γ') t =
+      if ht : (t : ℝ) < 1 / 2 then
+        2 • (pathderiv I M γ ⟨2 * t,(unitInterval.mul_pos_mem_iff zero_lt_two).2 ⟨t.2.1,le_of_lt ht⟩⟩)
+      else if ht : (t : ℝ) > 1 / 2 then
+        2 • (pathderiv I M γ ⟨2 * t - 1,unitInterval.two_mul_sub_one_mem_iff.2 ⟨le_of_lt ht, t.2.2⟩⟩)
+      else if hp' : pathderiv I M γ 1 = pathderiv I M γ' 0 then pathderiv I M γ 1 else 0 := by
+  by_cases ht : (t : ℝ) < 1 / 2
+  simp_rw [eq_true ht,dite_true]
+  simp_rw [pathderiv,eq_true (ht.trans one_half_lt_one),eq_true ((lt_div_iff' zero_lt_two).mp ht),
+      ite_true,Path.trans,Path.coe_mk_mk]
+  sorry
+  sorry
+
 def length [Metric I M] {p q : M} (γ : Path p q) :=
   ∫ t, ‖pathderiv I M γ t‖
 
-theorem length_nonneg [Metric I M] {p q : M} (γ : Path p q) : 0 ≤ length I M γ :=
+lemma length_eq_intervalIntegral [Metric I M] {p q : M} (γ : Path p q) : length I M γ =
+    ∫ t in (0:ℝ)..1, if ht : t ∈ unitInterval then ‖pathderiv I M γ ⟨t,ht⟩‖ else 0 := by
+  simp_rw [intervalIntegral.integral_of_le zero_le_one,←MeasureTheory.integral_Icc_eq_integral_Ioc,
+    MeasureTheory.set_integral_eq_subtype measurableSet_Icc,
+    fun t => eq_true (Subtype.mem t),dite_true,length]
+
+lemma length_nonneg [Metric I M] {p q : M} (γ : Path p q) : 0 ≤ length I M γ :=
   MeasureTheory.integral_nonneg (fun t => by simp)
 
 @[simp]
-theorem length_of_const [Metric I M] {p : M} : length I M (Path.refl p) = 0 := by
+lemma length_of_const [Metric I M] {p : M} : length I M (Path.refl p) = 0 := by
   simp [length,pathderiv,Path.refl]
 
-def unitInterval.symm_toMeasurableEquiv : MeasurableEquiv unitInterval unitInterval where
-  toFun := symm
-  invFun := symm
-  left_inv := by simp [Function.LeftInverse]
-  right_inv := by simp [Function.RightInverse,Function.LeftInverse]
-  measurable_toFun := continuous_symm.measurable
-  measurable_invFun := continuous_symm.measurable
-
-lemma MeasurePreserving.subtype_map_preimage {α : Type u_1} {β : Type u_2} [MeasurableSpace α]
-    [MeasurableSpace β] {μα : MeasureTheory.Measure α} {μβ : MeasureTheory.Measure β} {f : α → β}
-    (hf : MeasureTheory.MeasurePreserving f μα μβ) {s : Set β} (hs : MeasurableSet s)
-    : MeasureTheory.MeasurePreserving (Subtype.map f (fun x => (id : x ∈ f ⁻¹' s → f x ∈ s)))
-    (MeasureTheory.Measure.comap Subtype.val μα) (MeasureTheory.Measure.comap Subtype.val μβ) := by
-  have hf' := Measurable.subtype_map hf.measurable (fun x => (id : x ∈ f ⁻¹' s → f x ∈ s))
-  refine' ⟨hf',_⟩
-  apply MeasureTheory.Measure.ext; intro t ht
-  simp_rw [MeasureTheory.Measure.map_apply hf' ht]
-  have hs': (MeasureTheory.Measure.comap Subtype.val μβ) t = μβ (Subtype.val '' t)
-    := comap_subtype_coe_apply hs μβ t
-  have h : (MeasureTheory.Measure.map f μα) (Subtype.val '' t) = μα (f ⁻¹' (Subtype.val '' t))
-    := MeasureTheory.Measure.map_apply hf.measurable (MeasurableSet.subtype_image hs ht)
-  rw [comap_subtype_coe_apply (hf.measurable hs) μα,hs',←hf.map_eq,h]
-  apply congrArg μα
-  apply Set.ext; intro x
-  simp only [Set.mem_image,Set.mem_preimage,Subtype.exists,exists_and_right,exists_eq_right]
-  rfl
-
-def unitInterval.measurePreserving_symm : MeasureTheory.MeasurePreserving unitInterval.symm := by
-  have hsymm := unitInterval.continuous_symm.measurable
-  refine' ⟨hsymm,_⟩
-  apply MeasureTheory.Measure.ext; intro s hs
-  simp_rw [volume_set_coe_def,MeasureTheory.Measure.map_apply hsymm hs]
-  simp_rw [comap_subtype_coe_apply measurableSet_Icc]
-  have h : Set.image symm = Set.preimage symm :=
-    Set.image_eq_preimage_of_inverse symm_toMeasurableEquiv.left_inv symm_toMeasurableEquiv.right_inv
-  have h' : Subtype.val ∘ symm = (fun t => 1-t : ℝ → ℝ) ∘ Subtype.val := funext fun t => by simp
-  have h'' : Set.image (fun t => 1-t : ℝ → ℝ) = Set.preimage (fun t => 1-t : ℝ → ℝ) :=
-    Set.image_eq_preimage_of_inverse (by simp [Function.LeftInverse]) (by simp [Function.RightInverse,Function.LeftInverse])
-  have h''' : MeasureTheory.MeasurePreserving (fun t => 1-t : ℝ → ℝ) := MeasureTheory.Measure.measurePreserving_sub_left _ 1
-  rw [←h,←Set.image_comp,h',Set.image_comp,h'']
-  rw [←MeasureTheory.Measure.map_apply h'''.measurable (MeasurableSet.subtype_image measurableSet_Icc hs)]
-  rw [h'''.map_eq]
-
 @[simp]
-theorem length_of_symm [Metric I M] {p q : M} {γ : Path p q} : length I M (Path.symm γ) = length I M γ := by
-  simp_rw [length,pathderiv_of_symm,norm_neg]
-  refine' MeasureTheory.MeasurePreserving.integral_comp _ _ (fun t => ‖pathderiv I M γ t‖)
-  exact unitInterval.measurePreserving_symm
-  exact unitInterval.symm_toMeasurableEquiv.measurableEmbedding
+lemma length_of_symm [Metric I M] {p q : M} {γ : Path p q} : length I M (Path.symm γ) = length I M γ := by
+  have h : ∀ t, (if ht : t ∈ unitInterval then ‖pathderiv I M γ (unitInterval.symm ⟨t,ht⟩)‖ else 0) =
+      (fun t => if ht : t ∈ unitInterval then ‖pathderiv I M γ ⟨t,ht⟩‖ else 0) (1-t) := fun t => by
+    simp [and_comm,unitInterval.symm]
+  simp_rw [length_eq_intervalIntegral,Path.pathderiv_of_symm,norm_neg,h,
+    intervalIntegral.integral_comp_sub_left (fun t => if ht : t ∈ unitInterval then ‖pathderiv I M γ ⟨t,ht⟩‖ else 0) 1,
+    sub_self,sub_zero]
+
+lemma length_of_trans [Metric I M] {p p' p'' : M} (γ : Path p p') (γ' : Path p' p'') :
+    length I M (γ.trans γ') = length I M γ + length I M γ' := by
+  sorry
 
 class RiemannianManifold extends Metric I M where
   edist : M → M → ENNReal-- := fun p q => ⨅ (γ : Path p q) (hγ : Smooth (𝓡∂ 1) I γ), ENNReal.some ⟨length I M γ,length_nonneg I M γ⟩
@@ -239,3 +292,5 @@ def RiemannianManifold.toEMetricSpace [iM : RiemannianManifold I M] : EMetricSpa
     sorry
   edist_triangle := by sorry
   eq_of_edist_eq_zero := by sorry
+
+#check Equiv.iInf_congr
