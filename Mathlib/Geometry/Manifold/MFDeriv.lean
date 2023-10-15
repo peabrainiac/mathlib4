@@ -865,6 +865,10 @@ theorem MDifferentiableWithinAt.congr (h : MDifferentiableWithinAt I I' f s x)
   (HasMFDerivWithinAt.congr_mono h.hasMFDerivWithinAt ht hx (Subset.refl _)).mdifferentiableWithinAt
 #align mdifferentiable_within_at.congr MDifferentiableWithinAt.congr
 
+theorem MDifferentiableWithinAt.congr' (h : MDifferentiableWithinAt I I' f s x)
+    (ht : ∀ x ∈ s, f₁ x = f x) (hx : x ∈ s) : MDifferentiableWithinAt I I' f₁ s x :=
+  h.congr ht (ht x hx)
+
 theorem MDifferentiableOn.congr_mono (h : MDifferentiableOn I I' f s) (h' : ∀ x ∈ t, f₁ x = f x)
     (h₁ : t ⊆ s) : MDifferentiableOn I I' f₁ t := fun x hx =>
   (h x (h₁ hx)).congr_mono h' (h' x hx) h₁
