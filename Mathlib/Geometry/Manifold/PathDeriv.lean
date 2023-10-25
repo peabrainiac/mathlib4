@@ -17,13 +17,32 @@ def pathderiv {p q : M} (γ : Path p q) (t : unitInterval) : TangentSpace I (γ 
   if t.val < 1 then ((mfderiv (𝓡∂ 1) I γ t) (EuclideanSpace.single (0 : Fin 1) (1 : ℝ)))
     else -((mfderiv (𝓡∂ 1) I γ t) (EuclideanSpace.single (0 : Fin 1) (1 : ℝ)))
 
+def pathderivWithin {p q : M} (γ : Path p q) (s : Set unitInterval) (t : unitInterval) :
+    TangentSpace I (γ t) :=
+  if t.val < 1 then ((mfderivWithin (𝓡∂ 1) I γ s t) (EuclideanSpace.single (0 : Fin 1) (1 : ℝ)))
+    else -((mfderivWithin (𝓡∂ 1) I γ s t) (EuclideanSpace.single (0 : Fin 1) (1 : ℝ)))
+
 @[simp]
-lemma unitInterval.symm_comp_symm : unitInterval.symm ∘ unitInterval.symm = id := by
+lemma pathderivWithin_univ {p q : M} (γ : Path p q) : pathderivWithin I γ Set.univ = pathderiv I γ := by
+  simp [pathderiv,pathderivWithin]
+
+@[simp]
+lemma unitInterval.symm_comp_symm : symm ∘ symm = id := by
   simp [Function.funext_iff]
+
+@[simp]
+lemma unitInterval.symm_symm_image (s : Set unitInterval) : symm '' (symm '' s) = s := by
+  simp [s.image_image symm]
 
 def unitInterval.val' (t : unitInterval) : ℝ¹ := EuclideanSpace.single 0 t
 
 def unitInterval.proj' (x : ℝ¹) : unitInterval := Set.projIcc 0 1 zero_le_one (x 0)
+
+lemma unitInterval.proj'_val' (t : unitInterval) : proj' (val' t) = t := by
+  simp [proj',val']
+
+lemma unitInterval.proj'_comp_val' : proj' ∘ val' = id := funext fun t => by
+  simp [proj',val']
 
 lemma EuclideanSpace.single_eq_self {x : ℝ¹} : single 0 (x 0) = x := by
   apply PiLp.ext; intro i
@@ -89,26 +108,121 @@ lemma unitInterval.smoothOn_proj' : SmoothOn (𝓡 1) (𝓡∂ 1) proj' {x | x 0
   have hyi : y i = y 0 := by rw [Subsingleton.elim 0 i]
   simp [Set.coe_projIcc,hy.out.1,hy.out.2,hyi]
 
-lemma unitInterval.range_val' : Set.range val' = {x | x 0 ∈ unitInterval} := by
-  refine' (Set.range_eq_iff _ _).mpr ⟨fun t => _,fun x hx => _⟩
-  simp [val',t.2.1,t.2.2]
-  use ⟨x 0,hx.out.out⟩
-  rw [val',EuclideanSpace.single_eq_self]
+lemma unitInterval.image_val' {s : Set unitInterval} : val' '' s = {x | proj' x ∈ s ∧ x 0 ∈ unitInterval} := by
+  ext x
+  rw [Set.mem_setOf_eq,Set.mem_image]
+  refine' ⟨fun ⟨t,ht⟩ => _,fun hx => ⟨proj' x,⟨hx.1,_⟩⟩⟩
+  simp [ht.2.symm,val',proj',ht.1,t.2.1,t.2.2]
+  simp [val',proj',Set.projIcc,hx.2.1,hx.2.2,EuclideanSpace.single_eq_self]
 
-lemma unitInterval.smoothWithinAt_from_real {f : unitInterval → unitInterval} {s : Set unitInterval}
-    {t : unitInterval} (hf : ContDiffWithinAt ℝ ⊤ (val' ∘ f ∘ proj') (val' '' s) (val' t)) :
-       (SmoothWithinAt (𝓡∂ 1) (𝓡∂ 1) f s t) := by
+lemma unitInterval.range_val' : Set.range val' = {x | x 0 ∈ unitInterval} := by
+  simp_rw [←Set.image_univ,image_val',Set.mem_univ,true_and]
+
+lemma unitInterval.mdifferentiableWithinAt_iff_differentiableWithinAt {n : ℕ∞} {f : unitInterval → unitInterval}
+    {s : Set unitInterval} {t : unitInterval} : MDifferentiableWithinAt (𝓡∂ 1) (𝓡∂ 1) f s t ↔
+      DifferentiableWithinAt ℝ (val' ∘ f ∘ proj') (val' '' s) (val' t) := by
+  refine' ⟨fun hf => _,fun hf => _⟩
+  have h : MDifferentiableWithinAt (𝓡 1) (𝓡 1) (val' ∘ f ∘ proj') (val' '' s) (val' t) := by
+    refine' smooth_val'.mdifferentiableWithinAt.comp _ _ Set.subset_preimage_univ
+    refine' MDifferentiableWithinAt.comp _ ((unitInterval.proj'_val' t).symm ▸ hf) _ _
+    exact (smoothOn_proj'.mdifferentiableOn _ (by simp [val',t.2.1,t.2.2])).mono (by simp [image_val'])
+    simp [Set.preimage_comp.symm,proj'_comp_val',subset_refl]
+  replace h := h.2
+  simp_rw [ContDiffWithinAtProp,modelWithCornersSelf_coe,modelWithCornersSelf_coe_symm,chartAt,
+    ChartedSpace.chartAt,LocalHomeomorph.refl_symm,LocalHomeomorph.refl_apply,Set.preimage_id,
+    Function.comp.right_id,Function.comp.left_id,id_eq,Set.range_id,Set.inter_univ] at h
+  exact h
   have hf' : f = proj' ∘ (val' ∘ f ∘ proj') ∘ val' := funext fun t => by simp [val',proj']
   rw [hf']
-  have smoothWithinAt_proj' := (smoothOn_proj' (((val' ∘ f ∘ proj') ∘ val') t) (by simp [val',proj',(f t).2.1,(f t).2.2])).smoothWithinAt
-  refine' smoothWithinAt_proj'.comp t _ (fun t _ht => by simp [val',proj',(f t).2.1,(f t).2.2])
-  have smoothWithinAt_val' : SmoothWithinAt (𝓡∂ 1) (𝓡 1) val' s t := smooth_val'.smoothAt.smoothWithinAt
-  refine' SmoothWithinAt.comp t _ smoothWithinAt_val' (s.mapsTo_image _)
-  refine' ⟨hf.continuousWithinAt,_⟩
-  simp [ContDiffWithinAtProp,hf]
+  refine' (smoothOn_proj'.mdifferentiableOn _ (by simp [val',proj',(f t).2.1,(f t).2.2])).comp t _ _
+  refine' MDifferentiableWithinAt.comp t _ smooth_val'.mdifferentiableWithinAt (s.subset_preimage_image _)
+  exact ⟨hf.continuousWithinAt,by simp [hf]⟩
+  exact (fun t _ht => by simp [val',proj',(f t).2.1,(f t).2.2])
+
+lemma unitInterval.contMDiffWithinAt_iff_contDiffWithinAt {n : ℕ∞} {f : unitInterval → unitInterval}
+    {s : Set unitInterval} {t : unitInterval} : ContMDiffWithinAt (𝓡∂ 1) (𝓡∂ 1) n f s t ↔
+      ContDiffWithinAt ℝ n (val' ∘ f ∘ proj') (val' '' s) (val' t) := by
+  refine' ⟨fun hf => _,fun hf => _⟩
+  have h : ContMDiffWithinAt (𝓡 1) (𝓡 1) n (val' ∘ f ∘ proj') (val' '' s) (val' t) := by
+    refine' smooth_val'.smoothAt.smoothWithinAt.contMDiffWithinAt.comp _ _ (Set.mapsTo_univ _ _)
+    refine' ContMDiffWithinAt.comp _ ((unitInterval.proj'_val' t).symm ▸ hf) _ _
+    exact (smoothOn_proj'.contMDiffOn _ (by simp [val',t.2.1,t.2.2])).mono (by simp [image_val'])
+    simp [proj'_comp_val',Set.mapsTo_id]
+  replace h := h.2
+  simp_rw [ContDiffWithinAtProp,modelWithCornersSelf_coe,modelWithCornersSelf_coe_symm,chartAt,
+    ChartedSpace.chartAt,LocalHomeomorph.refl_symm,LocalHomeomorph.refl_apply,Set.preimage_id,
+    Function.comp.right_id,Function.comp.left_id,id_eq,Set.range_id,Set.inter_univ] at h
+  exact h
+  have hf' : f = proj' ∘ (val' ∘ f ∘ proj') ∘ val' := funext fun t => by simp [val',proj']
+  rw [hf']
+  refine' (smoothOn_proj'.contMDiffOn _ (by simp [val',proj',(f t).2.1,(f t).2.2])).comp t _ _
+  refine' ContMDiffWithinAt.comp t _ smooth_val'.smoothAt.smoothWithinAt.contMDiffWithinAt (s.mapsTo_image _)
+  exact ⟨hf.continuousWithinAt,by simp [ContDiffWithinAtProp,hf]⟩
+  exact (fun t _ht => by simp [val',proj',(f t).2.1,(f t).2.2])
+
+lemma unitInterval.smoothWithinAt_iff_contDiffWithinAt {f : unitInterval → unitInterval} {s : Set unitInterval}
+    {t : unitInterval} : SmoothWithinAt (𝓡∂ 1) (𝓡∂ 1) f s t ↔
+      ContDiffWithinAt ℝ ⊤ (val' ∘ f ∘ proj') (val' '' s) (val' t) := by
+  rw [SmoothWithinAt]
+  exact contMDiffWithinAt_iff_contDiffWithinAt
+
+lemma unitInterval.mfderivWithin_from_real {f : unitInterval → unitInterval} {s : Set unitInterval}
+    {t : unitInterval} (hf : MDifferentiableWithinAt (𝓡∂ 1) (𝓡∂ 1) f s t) :
+    mfderivWithin (𝓡∂ 1) (𝓡∂ 1) f s t = if t.val < 1 ∧ (f t).val < 1 ∨ t.val = 1 ∧ (f t).val = 1
+      then fderivWithin ℝ (val' ∘ f ∘ proj') (val' '' s) (val' t)
+      else -fderivWithin ℝ (val' ∘ f ∘ proj') (val' '' s) (val' t) := by
+  have hS : ∀ s : ℝ¹, s 0 < 1 → {x : ℝ¹ | x 0 ≤ 1} ∈ nhds s := fun s hs => by
+    have  hS'' : ({x | x 0 ≤ 1} : Set (Fin 1 → ℝ)) = Set.pi Set.univ (fun i => Set.Iic 1) := by
+      simp [Set.pi,Unique.forall_iff]
+    simp_rw [EuclideanSpace,PiLp,hS'']
+    exact set_pi_mem_nhds Set.finite_univ (Unique.forall_iff.mpr (fun _i => Iic_mem_nhds hs))
+  simp_rw [mfderivWithin,hf,ite_true,writtenInExtChartAt,extChartAt,chartAt,ChartedSpace.chartAt,
+    LocalHomeomorph.extend,LocalEquiv.coe_trans,LocalEquiv.coe_trans_symm,
+    ModelWithCorners.toLocalEquiv_coe,ModelWithCorners.toLocalEquiv_coe_symm,
+    LocalHomeomorph.toFun_eq_coe,LocalHomeomorph.coe_coe_symm,modelWithCornersEuclideanHalfSpace,
+    ModelWithCorners.mk_coe,ModelWithCorners.mk_symm,LocalEquiv.coe_symm_mk]
+  by_cases ht : t.val < 1
+  by_cases hft : (f t).val < 1
+  simp_rw [ht,hft,true_or,ite_true,IccLeftChart,IccRightChart,LocalHomeomorph.mk_coe,
+    LocalHomeomorph.mk_coe_symm,LocalEquiv.coe_symm_mk,Function.comp,Function.update_same,
+    add_zero,sub_zero]
+  have h : (fun x _i => (f ⟨min (max (x 0) 0) 1,by simp⟩).val) = fun x => val' (f (proj' x)) :=
+    funext fun x => PiLp.ext fun i => by
+      simp [val',proj',Set.projIcc,max_min_distrib_left,min_comm (1 : ℝ),max_comm (0 : ℝ)]
+  have hx : (fun _i => t.val) = val' t := PiLp.ext fun i => by simp [val']
+  rw [h,hx]
+  refine' fderivWithin_congr_set (Filter.Eventually.set_eq (Filter.eventually_of_mem _ _))
+  use {x | x 0 ≤ 1}
+  exact hS (val' t) (by simp [val',ht])
+  intro x hx
+  rw [Subtype.range_coe,unitInterval.image_val',Set.mem_inter_iff,Set.mem_setOf_eq,Set.mem_Icc,eq_true hx.out,and_true]
+  refine' and_congr _ (by rfl)
+  simp [proj',Set.projIcc,max_min_distrib_left,min_comm (1 : ℝ),max_comm (0 : ℝ)]
+
+  --simp_rw [mfderivWithin,hf]
+  --simp [Function.comp,chartAt,ChartedSpace.chartAt,ht,hft,ht.ne.not_eq,IccLeftChart,
+    --IccRightChart,modelWithCornersEuclideanHalfSpace]
+  --have := eq_of_le_of_not_lt (f t).2.2 hft
+  --simp []
+  simp_rw [ht,hft,eq_false ht.ne,false_and,ite_true,ite_false,IccLeftChart,IccRightChart,LocalHomeomorph.mk_coe,
+    LocalHomeomorph.mk_coe_symm,LocalEquiv.coe_symm_mk,Function.comp,Function.update_same,
+    add_zero,sub_zero]
+  have h : (fun x _i => 1 - (f ⟨min (max (x 0) 0) 1,by simp⟩).val : ℝ¹ → ℝ¹) = (fun x => EuclideanSpace.single 0 1 - val' (f (proj' x)) : ℝ¹ → ℝ¹) :=
+    funext fun x => PiLp.ext fun _i => by
+      simp [val',proj',Set.projIcc,max_min_distrib_left,min_comm (1 : ℝ),max_comm (0 : ℝ)]
+  have hx : (fun _i => t.val) = val' t := PiLp.ext fun i => by simp [val']
+  rw [h,hx]
+  rw [fderivWithin_sub]
+  sorry
+  sorry
+  exact differentiableWithinAt_const (EuclideanSpace.single 0 1)
+  --have h : () ⁻¹' s ∩ Set.range Subtype.val
+  --apply mdifferentiableWithinAt_iff_differentiableWithinAt.mp
+  sorry
+  sorry
 
 lemma unitInterval.smooth_symm : Smooth (𝓡∂ 1) (𝓡∂ 1) unitInterval.symm := fun t => by
-  apply smoothWithinAt_from_real
+  apply smoothWithinAt_iff_contDiffWithinAt.mpr
   have h : ∀ x ∈ val' '' Set.univ, (val' ∘ unitInterval.symm ∘ proj') x =
       (Function.const ℝ¹ (EuclideanSpace.single 0 1 : ℝ¹) - @id ℝ¹) x := fun x hx => by
     have hx' := (range_val' ▸ (Set.image_univ ▸ hx)).out
@@ -162,6 +276,18 @@ lemma unitInterval.mfderiv_symm {t : unitInterval} {x : ℝ¹} :
   simp [ContinuousLinearMap.id]
   exact False.rec (ht' (lt_of_lt_of_le zero_lt_one (le_of_not_lt ht)))
 
+lemma Path.symm_mdifferentiableWithinAt_iff {p q : M} {γ : Path p q} {s : Set unitInterval}
+    {t : unitInterval} : MDifferentiableWithinAt (𝓡∂ 1) I γ.symm s t ↔
+      MDifferentiableWithinAt (𝓡∂ 1) I γ (unitInterval.symm '' s) (unitInterval.symm t) := by
+  have h {p q : M} (γ : Path p q) (s : Set unitInterval) (t : unitInterval) : MDifferentiableWithinAt (𝓡∂ 1) I γ.symm s t →
+      MDifferentiableWithinAt (𝓡∂ 1) I γ (unitInterval.symm '' s) (unitInterval.symm t) := fun h' => by
+    rw [←Function.comp.right_id γ,←unitInterval.symm_comp_symm,←Function.comp.assoc _ _ _]
+    rw [←unitInterval.symm_symm_image s,←unitInterval.symm_symm t] at h'
+    exact h'.comp _ unitInterval.smooth_symm.mdifferentiableWithinAt (Set.subset_preimage_image _ _)
+  have h' := h γ.symm (unitInterval.symm '' s) (unitInterval.symm t)
+  rw [unitInterval.symm_symm_image s,unitInterval.symm_symm t,Path.symm_symm] at h'
+  exact ⟨h γ s t,h'⟩
+
 lemma Path.symm_mdifferentiableAt_iff {p q : M} {γ : Path p q} {t : unitInterval} :
     MDifferentiableAt (𝓡∂ 1) I γ.symm t ↔ MDifferentiableAt (𝓡∂ 1) I γ (unitInterval.symm t) := by
   have h {p q : M} (γ : Path p q) (t : unitInterval) :
@@ -171,18 +297,29 @@ lemma Path.symm_mdifferentiableAt_iff {p q : M} {γ : Path p q} {t : unitInterva
   have h' := unitInterval.symm_symm t ▸ (@Path.symm_symm _ _ _ _ γ) ▸ (h γ.symm (unitInterval.symm t))
   exact ⟨h γ t,h'⟩
 
-lemma Path.pathderiv_of_symm {p q : M} {γ : Path p q} {t : unitInterval} : pathderiv I γ.symm t =
-    -pathderiv I γ (unitInterval.symm t) := by
-  rw [pathderiv,pathderiv]
-  by_cases hγ : MDifferentiableAt (𝓡∂ 1) I γ (unitInterval.symm t)
-  rw [Path.symm,Path.coe_mk_mk,mfderiv_comp t hγ unitInterval.smooth_symm.mdifferentiableAt]
+lemma Path.pathderivWithin_of_symm {p q : M} {γ : Path p q} {s : Set unitInterval}
+    {t : unitInterval} (hst : UniqueMDiffWithinAt (𝓡∂ 1) s t) : pathderivWithin I γ.symm s t =
+      -pathderivWithin I γ (unitInterval.symm '' s) (unitInterval.symm t) := by
+  rw [pathderivWithin,pathderivWithin]
+  by_cases hγ : MDifferentiableWithinAt (𝓡∂ 1) I γ (unitInterval.symm '' s) (unitInterval.symm t)
+  rw [Path.symm,Path.coe_mk_mk,mfderivWithin_comp t hγ unitInterval.smooth_symm.mdifferentiableWithinAt
+    (s.subset_preimage_image unitInterval.symm) hst,
+    mfderivWithin_subset s.subset_univ hst unitInterval.smooth_symm.mdifferentiableWithinAt,
+    mfderivWithin_univ]
   by_cases ht : 0 < t.val ∧ t.val < 1
   simp [unitInterval.mfderiv_symm,ht]
   obtain ht' | ht' := not_and_or.mp ht
   simp [unitInterval.mfderiv_symm,ht',lt_of_le_of_lt (le_of_not_lt ht') zero_lt_one]
   simp [unitInterval.mfderiv_symm,ht',lt_of_lt_of_le zero_lt_one (le_of_not_lt ht')]
-  have hγ' := (not_iff_not.mpr (symm_mdifferentiableAt_iff I)).mpr hγ
-  simp [mfderiv_zero_of_not_mdifferentiableAt hγ,mfderiv_zero_of_not_mdifferentiableAt hγ']
+  have hγ' := (not_iff_not.mpr (symm_mdifferentiableWithinAt_iff I)).mpr hγ
+  simp [mfderivWithin_zero_of_not_mdifferentiableWithinAt hγ,
+    mfderivWithin_zero_of_not_mdifferentiableWithinAt hγ']
+
+lemma Path.pathderiv_of_symm {p q : M} {γ : Path p q} {t : unitInterval} : pathderiv I γ.symm t =
+    -pathderiv I γ (unitInterval.symm t) := by
+  have h : Set.range unitInterval.symm = Set.univ := unitInterval.symm_toDiffeomorph.toEquiv.range_eq_univ
+  rw [←pathderivWithin_univ,pathderivWithin_of_symm I (uniqueMDiffWithinAt_univ (𝓡∂ 1))]
+  simp [h]
 
 lemma unitInterval.one_half_mem : 1 / 2 ∈ unitInterval := div_mem zero_le_one zero_le_two one_le_two
 
@@ -223,7 +360,7 @@ lemma unitInterval.double'_one_half : double' one_half = 0 := by
 
 lemma unitInterval.smoothOn_double :
     SmoothOn (𝓡∂ 1) (𝓡∂ 1) unitInterval.double {s | s.val ≤ 1 / 2} := fun t ht => by
-  refine' (unitInterval.smoothWithinAt_from_real _).contMDiffWithinAt
+  refine' (smoothWithinAt_iff_contDiffWithinAt.mpr _).contMDiffWithinAt
   have hs : val' '' {s | s.val ≤ 1 / 2} = {x | 0 ≤ x 0 ∧ x 0 ≤ 1 / 2} := Set.ext fun x => by
     simp_rw [Set.image,val',Set.mem_setOf_eq]
     refine' ⟨fun ⟨a,ha⟩ => _,fun hx => _⟩
