@@ -245,11 +245,17 @@ def EuclideanSpace.proj (i : ι) : EuclideanSpace 𝕜 ι →L[𝕜] 𝕜 :=
 #align euclidean_space.proj_apply EuclideanSpace.proj_apply
 
 -- TODO : This should be generalized to `PiLp`.
-/-- The vector given in euclidean space by being `1 : 𝕜` at coordinate `i : ι` and `0 : 𝕜` at
-all other coordinates. -/
-def EuclideanSpace.single [DecidableEq ι] (i : ι) (a : 𝕜) : EuclideanSpace 𝕜 ι :=
-  (PiLp.equiv _ _).symm (Pi.single i a)
-#align euclidean_space.single EuclideanSpace.single
+/-- The map taking `a : 𝕜` to the vector in euclidean space that is `a` at coordinate `i : ι` and
+`0 : 𝕜` at all other coordinates, as a linear map. -/
+@[simps!]
+def EuclideanSpace.singleₗ [DecidableEq ι] (i : ι) : 𝕜 →ₗ[𝕜] EuclideanSpace 𝕜 ι :=
+  (PiLp.linearEquiv 2 𝕜 fun _ : ι => 𝕜).symm.comp (LinearMap.single i (φ := fun _ => 𝕜))
+
+-- TODO : This should be generalized to `PiLp`.
+/-- The map taking `a : 𝕜` to the vector in euclidean space that is `a` at coordinate `i : ι` and
+`0 : 𝕜` at all other coordinates, as a continuous linear map. -/
+def EuclideanSpace.single [DecidableEq ι] (i : ι) : 𝕜 →L[𝕜] EuclideanSpace 𝕜 ι :=
+  ⟨EuclideanSpace.singleₗ i,by continuity⟩
 
 @[simp]
 theorem PiLp.equiv_single [DecidableEq ι] (i : ι) (a : 𝕜) :
@@ -266,7 +272,7 @@ theorem PiLp.equiv_symm_single [DecidableEq ι] (i : ι) (a : 𝕜) :
 @[simp]
 theorem EuclideanSpace.single_apply [DecidableEq ι] (i : ι) (a : 𝕜) (j : ι) :
     (EuclideanSpace.single i a) j = ite (j = i) a 0 := by
-  rw [EuclideanSpace.single, PiLp.equiv_symm_apply, ← Pi.single_apply i a j]
+  simp [EuclideanSpace.single, EuclideanSpace.singleₗ, ← Pi.single_apply i a j]
 #align euclidean_space.single_apply EuclideanSpace.single_apply
 
 theorem EuclideanSpace.inner_single_left [DecidableEq ι] (i : ι) (a : 𝕜) (v : EuclideanSpace 𝕜 ι) :

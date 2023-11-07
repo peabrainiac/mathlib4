@@ -36,6 +36,17 @@ lemma pathderivWithin_congr' {p q p' q' : M} {γ : Path p q} {γ' : Path p' q'} 
     (ht : t ∈ s) : pathderivWithin I γ s t = pathderivWithin I γ' s t :=
   pathderivWithin_congr I hs h (h t ht)
 
+lemma pathderivWithin_subset {p q : M} {γ : Path p q} {s u : Set unitInterval} {t : unitInterval}
+    (hsu : s ⊆ u) (hs : UniqueMDiffWithinAt (𝓡∂ 1) s t)
+    (h : MDifferentiableWithinAt (𝓡∂ 1) I γ u t) :
+      pathderivWithin I γ s t = pathderivWithin I γ u t := by
+  rw [pathderivWithin,pathderivWithin,mfderivWithin_subset hsu hs h]
+
+lemma pathderivWithin_eq_pathderiv {p q : M} {γ : Path p q} {s : Set unitInterval}
+    {t : unitInterval} (hs : UniqueMDiffWithinAt (𝓡∂ 1) s t) (h : MDifferentiableAt (𝓡∂ 1) I γ t) :
+      pathderivWithin I γ s t = pathderiv I γ t := by
+  rw [pathderivWithin_subset I s.subset_univ hs h.mdifferentiableWithinAt,pathderivWithin_univ]
+
 lemma pathderivWithin_reparam {p q : M} {γ : Path p q} {f : unitInterval → unitInterval}
     {hf : Continuous f} {hf₀ : f 0 = 0} {hf₁ : f 1 = 1} {s u : Set unitInterval}
     (t : unitInterval) (hγ : MDifferentiableWithinAt (𝓡∂ 1) I γ u (f t))
@@ -69,7 +80,7 @@ lemma unitInterval.symm_comp_symm : symm ∘ symm = id := by
 lemma unitInterval.symm_symm_image (s : Set unitInterval) : symm '' (symm '' s) = s := by
   simp [s.image_image symm]
 
-def unitInterval.val' (t : unitInterval) : ℝ¹ := EuclideanSpace.single 0 t
+def unitInterval.val' (t : unitInterval) : ℝ¹ := EuclideanSpace.single 0 t.val
 
 def unitInterval.proj (t : ℝ) : unitInterval := Set.projIcc 0 1 zero_le_one t
 
@@ -139,9 +150,12 @@ lemma unitInterval.smoothOn_proj : SmoothOn 𝓘(ℝ, ℝ) (𝓡∂ 1) proj unit
   by_cases hx' : x < 1
   all_goals simp only [ContDiffWithinAtProp,mfld_simps,chartAt,ChartedSpace.chartAt,val_proj hx,hx',
     ite_true,ite_false,IccLeftChart,IccRightChart,modelWithCornersEuclideanHalfSpace,Function.comp]
-  --refine' (contDiffWithinAt_pi (ι := Fin 1) (F' := fun i => ℝ))).mpr _
-  --refine' (contDiffWithinAt_id).congr' _ _
-  all_goals sorry
+  refine' (EuclideanSpace.single 0).contDiff.contDiffWithinAt.congr' (fun y hy => _) hx
+  ext i; simp [val_proj hy]
+  refine' (contDiff_const.sub (EuclideanSpace.single 0).contDiff).contDiffWithinAt.congr' _ hx
+  use EuclideanSpace.single 0 1
+  intro y hy; ext i
+  simp [val_proj hy]
 
 -- TODO: abolish
 lemma unitInterval.smooth_val' : Smooth (𝓡∂ 1) (𝓡 1) val' := fun t => by
@@ -170,6 +184,7 @@ lemma unitInterval.smooth_val' : Smooth (𝓡∂ 1) (𝓡 1) val' := fun t => by
   simp [hx.1.out,hx.2.out,EuclideanSpace.single_sub,EuclideanSpace.single_eq_self]
   simp [t.2.1,t.2.2]
 
+-- TODO: abolish
 lemma unitInterval.smoothOn_proj' : SmoothOn (𝓡 1) (𝓡∂ 1) proj' {x | x 0 ∈ unitInterval} := fun x hx => by
   refine' ⟨_,_⟩
   have h : proj' = Set.projIcc 0 1 zero_le_one ∘ EuclideanSpace.proj 0 := funext fun t => by simp [proj']
@@ -219,10 +234,9 @@ lemma unitInterval.mfderiv_val {t : unitInterval} : mfderiv (𝓡∂ 1) 𝓘(ℝ
     fderivWithin_const_sub ((by simp : (1 - t.val) = (symm t).val) ▸ (hS' (symm t))),
     ContinuousLinearMap.fderivWithin _ ((by simp : (1 - t.val) = (symm t).val) ▸ (hS' (symm t)))]
 
--- TODO : remove coercion once `EuclideanSpace.single 0` is registered as a continuous linear map
-lemma unitInterval.coe_mfderivWithin_proj {t : unitInterval} :
-    ↑(mfderivWithin 𝓘(ℝ, ℝ) (𝓡∂ 1) proj unitInterval t.val : ℝ → ℝ¹) =
-      (if t.val < 1 then EuclideanSpace.single 0 else - EuclideanSpace.single 0 : ℝ → ℝ¹) := by
+lemma unitInterval.mfderivWithin_proj {t : unitInterval} :
+    mfderivWithin 𝓘(ℝ, ℝ) (𝓡∂ 1) proj unitInterval t.val =
+      if t.val < 1 then EuclideanSpace.single 0 else - EuclideanSpace.single 0 := by
   have h : mfderivWithin (𝓡∂ 1) (𝓡∂ 1) id Set.univ t = ContinuousLinearMap.id ℝ ℝ¹ :=
     mfderivWithin_id (𝓡∂ 1) (uniqueMDiffWithinAt_univ (𝓡∂ 1))
   rw [←proj_comp_val,mfderivWithin_comp t
@@ -231,7 +245,7 @@ lemma unitInterval.coe_mfderivWithin_proj {t : unitInterval} :
       (by convert Set.univ.subset_preimage_image _; rw [Set.image_univ,Subtype.range_val])
       (uniqueMDiffWithinAt_univ _),
     mfderivWithin_univ,mfderiv_val] at h
-  rw [←Function.comp.left_id (EuclideanSpace.single 0),←@ContinuousLinearMap.coe_id' ℝ _ ℝ¹,←h]
+  rw [←ContinuousLinearMap.id_comp (EuclideanSpace.single 0),←h]
   ext
   by_cases ht : t.val < 1
   all_goals simp [ht,TangentSpace]
@@ -556,11 +570,25 @@ lemma unitInterval.uniqueMDiffWithinAt_iff {s : Set unitInterval} {t : unitInter
   refine' h.image_denseRange ((smoothOn_proj.mdifferentiableOn t.1 t.2).mono _).hasMFDerivWithinAt _
   simp
   rw [mfderivWithin_subset (Subtype.coe_image_subset _ s) h (smoothOn_proj.mdifferentiableOn _ t.2),
-    coe_mfderivWithin_proj]
+    mfderivWithin_proj]
   refine' ((Function.rightInverse_iff_comp (f := (if t.val < 1 then EuclideanSpace.proj 0
       else -EuclideanSpace.proj 0 : ℝ¹ →L[ℝ] ℝ))).mpr _).surjective.denseRange
   ext x i; by_cases ht : t.val < 1
   all_goals simp [ht,((Fin.eq_zero i) ▸ rfl : x 0 = x i)]
+
+lemma unitInterval.uniqueMDiffOn_left : UniqueMDiffOn (𝓡∂ 1) {t : unitInterval | t.val ≤ 1 / 2}
+    := fun t ht => by
+  apply unitInterval.uniqueMDiffWithinAt_iff.mpr
+  convert (uniqueDiffOn_Icc one_half_pos) t ⟨t.2.1,ht⟩
+  convert Subtype.image_preimage_val unitInterval {s | s ≤ 1 / 2}
+  exact Set.ext fun s => ⟨fun h => ⟨h.2,⟨h.1,h.2.trans one_half_lt_one.le⟩⟩,fun h => ⟨h.2.1,h.1⟩⟩
+
+lemma unitInterval.uniqueMDiffOn_right : UniqueMDiffOn (𝓡∂ 1) {t : unitInterval | 1 / 2 ≤ t.val}
+    := fun t ht => by
+  apply unitInterval.uniqueMDiffWithinAt_iff.mpr
+  convert (uniqueDiffOn_Icc one_half_lt_one) t ⟨ht,t.2.2⟩
+  convert Subtype.image_preimage_val unitInterval {s | 1 / 2 ≤ s}
+  exact Set.ext fun s => ⟨fun h => ⟨h.1,⟨one_half_pos.le.trans h.1,h.2⟩⟩,fun h => ⟨h.1,h.2.2⟩⟩
 
 lemma Path.trans_eqOn_left {p p' p'' : M} {γ : Path p p'} {γ' : Path p' p''} :
     Set.EqOn (γ.trans γ') (γ ∘ unitInterval.double) {t | t.val ≤ 1 / 2} := fun t ht => by
@@ -585,6 +613,7 @@ lemma Path.trans_eqOn_right' {p p' p'' : M} {γ : Path p p'} {γ' : Path p' p''}
     Set.EqOn (γ.trans γ') (γ'.reparam unitInterval.double' unitInterval.continuous_double'
       unitInterval.double'_zero unitInterval.double'_one) {t | 1 / 2 ≤ t.val} := Path.trans_eqOn_right
 
+-- TODO : strengthen to an iff
 lemma Path.trans_mdifferentiableWithinAt_left {p p' p'' : M} {γ : Path p p'} {γ' : Path p' p''}
     {t : unitInterval} (ht : t.val ≤ 1 / 2) {u : Set unitInterval}
     (hγ : MDifferentiableWithinAt (𝓡∂ 1) I γ u (unitInterval.double t)) :
@@ -593,8 +622,9 @@ lemma Path.trans_mdifferentiableWithinAt_left {p p' p'' : M} {γ : Path p p'} {�
   have h := ((unitInterval.smoothOn_double t ht).mono hs).mdifferentiableWithinAt le_top
   exact (hγ.comp t h (Set.inter_subset_left _ _)).congr (fun t ht => trans_eqOn_left ht.2) (trans_eqOn_left ht)
 
+-- TODO : strengthen to an iff
 lemma Path.trans_mdifferentiableAt_left {p p' p'' : M} {γ : Path p p'} {γ' : Path p' p''}
-    {t : unitInterval} (ht : (t : ℝ) < 1 / 2)
+    {t : unitInterval} (ht : t.val < 1 / 2)
     (hγ : MDifferentiableAt (𝓡∂ 1) I γ (unitInterval.double t)) :
       MDifferentiableAt (𝓡∂ 1) I (γ.trans γ') t := by
   have h := MDifferentiableAt.comp t hγ (unitInterval.smoothAt_double ht).mdifferentiableAt
@@ -602,6 +632,7 @@ lemma Path.trans_mdifferentiableAt_left {p p' p'' : M} {γ : Path p p'} {γ' : P
   apply (mem_nhds_subtype unitInterval t {s | s.val ≤ 1 / 2}).mpr
   exact ⟨Set.Iic (1 / 2),⟨Iic_mem_nhds ht,subset_of_eq rfl⟩⟩
 
+-- TODO : strengthen to an iff
 lemma Path.trans_mdifferentiableWithinAt_right {p p' p'' : M} {γ : Path p p'} {γ' : Path p' p''}
     {t : unitInterval} (ht : 1 / 2 ≤ t.val) {u : Set unitInterval}
     (hγ' : MDifferentiableWithinAt (𝓡∂ 1) I γ' u (unitInterval.double' t)) :
@@ -610,8 +641,9 @@ lemma Path.trans_mdifferentiableWithinAt_right {p p' p'' : M} {γ : Path p p'} {
   have h := ((unitInterval.smoothOn_double' t ht).mono hs).mdifferentiableWithinAt le_top
   exact (hγ'.comp t h (Set.inter_subset_left _ _)).congr (fun t ht => trans_eqOn_right ht.2) (trans_eqOn_right ht)
 
+-- TODO : strengthen to an iff
 lemma Path.trans_mdifferentiableAt_right {p p' p'' : M} {γ : Path p p'} {γ' : Path p' p''}
-    {t : unitInterval} (ht : (t : ℝ) > 1 / 2)
+    {t : unitInterval} (ht : t.val > 1 / 2)
     (hγ : MDifferentiableAt (𝓡∂ 1) I γ' (unitInterval.double' t)) :
       MDifferentiableAt (𝓡∂ 1) I (γ.trans γ') t := by
   rw [←(γ.trans γ').symm_symm,Path.trans_symm]
@@ -622,7 +654,7 @@ lemma Path.trans_mdifferentiableAt_right {p p' p'' : M} {γ : Path p p'} {γ' : 
   rw [unitInterval.double_symm,unitInterval.symm_symm]
   exact hγ
 
--- TODO: remove unnecessary differentiability hypothesis
+-- TODO : remove unnecessary differentiability hypothesis
 lemma Path.trans_pathderivWithin_left {p p' p'' : M} {γ : Path p p'} {γ' : Path p' p''}
     {t : unitInterval} (ht : t.val ≤ 1 / 2) {u : Set unitInterval}
     (hγ : MDifferentiableWithinAt (𝓡∂ 1) I γ u (unitInterval.double t))
@@ -640,18 +672,23 @@ lemma Path.trans_pathderivWithin_left {p p' p'' : M} {γ : Path p p'} {γ' : Pat
   exact unitInterval.smoothOn_double.mdifferentiableOn t ht
   exact (unitInterval.smoothOn_double.mdifferentiableOn t ht).mono (Set.inter_subset_right _ _)
 
-lemma Path.trans_pathderiv_left {p p' p'' : M} {γ : Path p p'} {γ' : Path p' p''} {t : unitInterval}
+-- TODO: remove unnecessary differentiability hypothesis
+lemma Path.trans_pathderivWithin_left' {p p' p'' : M} {γ : Path p p'} {γ' : Path p' p''} {t : unitInterval}
     (ht : t.val ≤ 1 / 2) (hγ : MDifferentiableAt (𝓡∂ 1) I γ (unitInterval.double t)) :
       pathderivWithin I (γ.trans γ') {s | s.val ≤ 1 / 2} t =
         (2 : ℝ) • pathderiv I γ (unitInterval.double t) := by
   rw [←pathderivWithin_univ,←Set.univ_inter {s : unitInterval | s.val ≤ 1 / 2}]
   convert Path.trans_pathderivWithin_left I ht (mdifferentiableWithinAt_univ.mpr hγ) _
   rw [Set.preimage_univ,Set.univ_inter]
-  apply unitInterval.uniqueMDiffWithinAt_iff.mpr
-  convert (uniqueDiffOn_Icc one_half_pos) t ⟨t.2.1,ht⟩
-  convert Subtype.image_preimage_val unitInterval {s | s ≤ 1 / 2}
-  ext s
-  exact ⟨fun h => ⟨h.2,⟨h.1,h.2.trans one_half_lt_one.le⟩⟩,fun h => ⟨h.2.1,h.1⟩⟩
+  exact unitInterval.uniqueMDiffOn_left t ht
+
+-- TODO: remove unnecessary differentiability hypothesis
+lemma Path.trans_pathderiv_left {p p' p'' : M} {γ : Path p p'} {γ' : Path p' p''} {t : unitInterval}
+    (ht : t.val < 1 / 2) (hγ : MDifferentiableAt (𝓡∂ 1) I γ (unitInterval.double t)) :
+      pathderiv I (γ.trans γ') t = (2 : ℝ) • pathderiv I γ (unitInterval.double t) := by
+  rw [←trans_pathderivWithin_left' I ht.le hγ,pathderivWithin_eq_pathderiv I _ _]
+  exact unitInterval.uniqueMDiffOn_left t ht.le
+  exact trans_mdifferentiableAt_left I ht hγ
 
 -- TODO: remove unnecessary differentiability hypothesis
 lemma Path.trans_pathderivWithin_right {p p' p'' : M} {γ : Path p p'} {γ' : Path p' p''}
@@ -660,9 +697,19 @@ lemma Path.trans_pathderivWithin_right {p p' p'' : M} {γ : Path p p'} {γ' : Pa
     (hu : UniqueMDiffWithinAt (𝓡∂ 1) (unitInterval.double' ⁻¹' u ∩ {s | 1 / 2 ≤ s.val}) t) :
       pathderivWithin I (γ.trans γ') (unitInterval.double' ⁻¹' u ∩ {s | 1 / 2 ≤ s.val}) t =
         (2 : ℝ) • pathderivWithin I γ' u (unitInterval.double' t) := by
-  sorry
+  rw [pathderivWithin_congr I hu (Path.trans_eqOn_right'.mono (Set.inter_subset_right _ _))
+    (Path.trans_eqOn_right ht),pathderivWithin_reparam I _ hγ' _ (Set.inter_subset_left _ _) hu,
+    mfderivWithin_subset (Set.inter_subset_right _ _) hu _,unitInterval.mfderivWithin_double' ht]
+  by_cases ht' : t.val < 1
+  simp only [ht',ite_true,ContinuousLinearMap.coe_smul',Pi.smul_apply,ContinuousLinearMap.id]
+  simp [-one_div,(by linarith : 2 * t.val - 1 < 1)]
+  simp only [ht',ite_true,ContinuousLinearMap.coe_smul',Pi.smul_apply,ContinuousLinearMap.id]
+  simp [-one_div,(by linarith : ¬ 2 * t.val - 1 < 1)]
+  exact unitInterval.smoothOn_double'.mdifferentiableOn t ht
+  exact (unitInterval.smoothOn_double'.mdifferentiableOn t ht).mono (Set.inter_subset_right _ _)
 
-lemma Path.trans_pathderiv_right {p p' p'' : M} {γ : Path p p'} {γ' : Path p' p''} {t : unitInterval}
+-- TODO: remove unnecessary differentiability hypothesis
+lemma Path.trans_pathderivWithin_right' {p p' p'' : M} {γ : Path p p'} {γ' : Path p' p''} {t : unitInterval}
     (ht : 1 / 2 ≤ t.val) (hγ' : MDifferentiableAt (𝓡∂ 1) I γ' (unitInterval.double' t)) :
       pathderivWithin I (γ.trans γ') {s | 1 / 2 ≤ s.val} t =
         (2 : ℝ) • pathderiv I γ' (unitInterval.double' t) := by
@@ -674,6 +721,14 @@ lemma Path.trans_pathderiv_right {p p' p'' : M} {γ : Path p p'} {γ' : Path p' 
   convert Subtype.image_preimage_val unitInterval {s | 1 / 2 ≤ s}
   ext s
   exact ⟨fun h => ⟨h.1,⟨one_half_pos.le.trans h.1,h.2⟩⟩,fun h => ⟨h.1,h.2.2⟩⟩
+
+-- TODO: remove unnecessary differentiability hypothesis
+lemma Path.trans_pathderiv_right {p p' p'' : M} {γ : Path p p'} {γ' : Path p' p''} {t : unitInterval}
+    (ht : 1 / 2 < t.val) (hγ' : MDifferentiableAt (𝓡∂ 1) I γ' (unitInterval.double' t)) :
+      pathderiv I (γ.trans γ') t = (2 : ℝ) • pathderiv I γ' (unitInterval.double' t) := by
+  rw [←trans_pathderivWithin_right' I ht.le hγ',pathderivWithin_eq_pathderiv I _ _]
+  exact unitInterval.uniqueMDiffOn_right t ht.le
+  exact trans_mdifferentiableAt_right I ht hγ'
 
 lemma Path.trans_mdifferentiableAt_mid {p p' p'' : M} {γ : Path p p'} {γ' : Path p' p''}
     (hγ : MDifferentiableAt (𝓡∂ 1) I γ 1) (hγ' : MDifferentiableAt (𝓡∂ 1) I γ' 0)
@@ -689,8 +744,8 @@ lemma Path.trans_mdifferentiableAt_mid {p p' p'' : M} {γ : Path p p'} {γ' : Pa
     exact unitInterval.double'_one_half ▸ (mdifferentiableWithinAt_univ.mpr hγ')
   have h' : pathderivWithin I (γ.trans γ') {s | s.val ≤ 1 / 2} unitInterval.one_half =
       pathderivWithin I (γ.trans γ') {s | 1 / 2 ≤ s.val} unitInterval.one_half := by
-    rw [Path.trans_pathderiv_left I (by simp) (unitInterval.double_one_half ▸ hγ),
-      Path.trans_pathderiv_right I (by simp) (unitInterval.double'_one_half ▸ hγ'),
+    rw [Path.trans_pathderivWithin_left' I (by simp) (unitInterval.double_one_half ▸ hγ),
+      Path.trans_pathderivWithin_right' I (by simp) (unitInterval.double'_one_half ▸ hγ'),
       unitInterval.double_one_half,unitInterval.double'_one_half,h]
   have h'' : mfderivWithin (𝓡∂ 1) I (γ.trans γ') {s | s.val ≤ 1 / 2} unitInterval.one_half =
       mfderivWithin (𝓡∂ 1) I (γ.trans γ') {s | 1 / 2 ≤ s.val} unitInterval.one_half := by
@@ -704,16 +759,23 @@ lemma Path.trans_mdifferentiableAt_mid {p p' p'' : M} {γ : Path p p'} {γ' : Pa
   have h''' := hs ▸ (hl.hasMFDerivWithinAt.union (h''.symm ▸ hr.hasMFDerivWithinAt))
   exact (h'''.hasMFDerivAt Filter.univ_mem).mdifferentiableAt
 
-lemma pathderiv_of_trans {p p' p'' : M} {γ : Path p p'} {γ' : Path p' p''} {t : unitInterval} :
+lemma Path.trans_pathderiv {p p' p'' : M} {γ : Path p p'} {γ' : Path p' p''} {t : unitInterval} :
     pathderiv I (γ.trans γ') t =
-      if ht : (t : ℝ) < 1 / 2 then
-        2 • (pathderiv I γ ⟨2 * t,(unitInterval.mul_pos_mem_iff zero_lt_two).2 ⟨t.2.1,le_of_lt ht⟩⟩)
-      else if ht : (t : ℝ) > 1 / 2 then
-        2 • (pathderiv I γ ⟨2 * t - 1,unitInterval.two_mul_sub_one_mem_iff.2 ⟨le_of_lt ht, t.2.2⟩⟩)
-      else if hp' : pathderiv I γ 1 = pathderiv I γ' 0 then pathderiv I γ 1 else 0 := by
-  by_cases ht : (t : ℝ) < 1 / 2
-  simp_rw [eq_true ht,dite_true]
-  --simp_rw [pathderiv,eq_true (ht.trans one_half_lt_one),eq_true ((lt_div_iff' zero_lt_two).mp ht),
-      --ite_true,Path.trans,Path.coe_mk_mk]
-  sorry
-  sorry
+      if ht : t.val < 1 / 2 then (2 : ℝ) • pathderiv I γ (unitInterval.double t)
+      else if ht : t.val > 1 / 2 then (2 : ℝ) • pathderiv I γ' (unitInterval.double' t)
+      else if pathderiv I γ 1 = pathderiv I γ' 0 then (2 : ℝ) • pathderiv I γ 1 else 0 := by
+  by_cases ht : t.val < 1 / 2
+  all_goals simp only [ht,dite_true,dite_false]
+  exact trans_pathderiv_left I ht (by sorry)
+  by_cases ht' : 1 / 2 < t.val
+  all_goals simp only [ht',dite_true,dite_false]
+  exact trans_pathderiv_right I ht' (by sorry)
+  have ht'' := eq_of_le_of_not_lt (le_of_not_lt ht') ht
+  have ht''' : t = unitInterval.one_half := Subtype.ext ht''
+  by_cases h : pathderiv I γ 1 = pathderiv I γ' 0
+  simp_rw [eq_true h,ite_true]
+  have h' := trans_mdifferentiableAt_mid I (by sorry) (by sorry) h
+  rw [ht''',←pathderivWithin_eq_pathderiv I (unitInterval.uniqueMDiffOn_left _ (by simp)) h',
+    trans_pathderivWithin_left' I (by simp) (by sorry),unitInterval.double_one_half]
+  simp only [h,ite_false]
+  all_goals sorry

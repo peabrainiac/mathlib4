@@ -54,10 +54,10 @@ instance innerProductSpace [Metric I M] (p : M) : InnerProductSpace ℝ (Tangent
   InnerProductSpace.ofCore _
 
 def length [Metric I M] {p q : M} (γ : Path p q) :=
-  ∫ t, ‖pathderiv I M γ t‖
+  ∫ t, ‖pathderiv I γ t‖
 
 lemma length_eq_intervalIntegral [Metric I M] {p q : M} (γ : Path p q) : length I M γ =
-    ∫ t in (0:ℝ)..1, if ht : t ∈ unitInterval then ‖pathderiv I M γ ⟨t,ht⟩‖ else 0 := by
+    ∫ t in (0:ℝ)..1, if ht : t ∈ unitInterval then ‖pathderiv I γ ⟨t,ht⟩‖ else 0 := by
   simp_rw [intervalIntegral.integral_of_le zero_le_one,←MeasureTheory.integral_Icc_eq_integral_Ioc,
     MeasureTheory.set_integral_eq_subtype measurableSet_Icc,
     fun t => eq_true (Subtype.mem t),dite_true,length]
@@ -71,11 +71,11 @@ lemma length_of_const [Metric I M] {p : M} : length I M (Path.refl p) = 0 := by
 
 @[simp]
 lemma length_of_symm [Metric I M] {p q : M} {γ : Path p q} : length I M (Path.symm γ) = length I M γ := by
-  have h : ∀ t, (if ht : t ∈ unitInterval then ‖pathderiv I M γ (unitInterval.symm ⟨t,ht⟩)‖ else 0) =
-      (fun t => if ht : t ∈ unitInterval then ‖pathderiv I M γ ⟨t,ht⟩‖ else 0) (1-t) := fun t => by
+  have h : ∀ t, (if ht : t ∈ unitInterval then ‖pathderiv I γ (unitInterval.symm ⟨t,ht⟩)‖ else 0) =
+      (fun t => if ht : t ∈ unitInterval then ‖pathderiv I γ ⟨t,ht⟩‖ else 0) (1-t) := fun t => by
     simp [and_comm,unitInterval.symm]
   simp_rw [length_eq_intervalIntegral,Path.pathderiv_of_symm,norm_neg,h,
-    intervalIntegral.integral_comp_sub_left (fun t => if ht : t ∈ unitInterval then ‖pathderiv I M γ ⟨t,ht⟩‖ else 0) 1,
+    intervalIntegral.integral_comp_sub_left (fun t => if ht : t ∈ unitInterval then ‖pathderiv I γ ⟨t,ht⟩‖ else 0) 1,
     sub_self,sub_zero]
 
 lemma length_of_trans [Metric I M] {p p' p'' : M} (γ : Path p p') (γ' : Path p' p'') :
