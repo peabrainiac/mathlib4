@@ -7,8 +7,7 @@ local notation "ℝ¹" => EuclideanSpace ℝ (Fin 1)
 
 universe uE uM
 
-variable {E : Type uE} [NormedAddCommGroup E] [NormedSpace ℝ E] [FiniteDimensional ℝ E]
-  (I : ModelWithCorners ℝ E E) [I.Boundaryless]
+variable {E : Type uE} [NormedAddCommGroup E] [NormedSpace ℝ E] (I : ModelWithCorners ℝ E E)
   {M : Type uM} [TopologicalSpace M] [ChartedSpace E M] [SmoothManifoldWithCorners I M]
 
 noncomputable section
@@ -51,6 +50,15 @@ lemma pathderivWithin_eq_pathderiv {p q : M} {γ : Path p q} {s : Set unitInterv
 lemma pathderivWithin_of_mem_nhds {p q : M} {γ : Path p q} {s : Set unitInterval} {t : unitInterval}
     (h : s ∈ nhds t) : pathderivWithin I γ s t = pathderiv I γ t := by
   rw [pathderivWithin,pathderiv,←mfderivWithin_univ,←s.univ_inter,mfderivWithin_inter h]
+
+lemma pathderiv_zero_of_not_mdifferentiableAt {p q : M} {γ : Path p q} {t : unitInterval}
+    (h : ¬MDifferentiableAt (𝓡∂ 1) I γ t) : pathderiv I γ t = 0 := by
+  simp [pathderiv,mfderiv_zero_of_not_mdifferentiableAt h]
+
+lemma pathderivWithin_zero_of_not_mdifferentiableWithinAt {p q : M} {γ : Path p q}
+    {s : Set unitInterval} {t : unitInterval} (h : ¬MDifferentiableWithinAt (𝓡∂ 1) I γ s t) :
+      pathderivWithin I γ s t = 0 := by
+  simp [pathderivWithin,mfderivWithin_zero_of_not_mdifferentiableWithinAt h]
 
 lemma pathderivWithin_reparam {p q : M} {γ : Path p q} {f : unitInterval → unitInterval}
     {hf : Continuous f} {hf₀ : f 0 = 0} {hf₁ : f 1 = 1} {s u : Set unitInterval}
@@ -673,9 +681,8 @@ lemma Path.trans_pathderivWithin_left {p p' p'' : M} (γ : Path p p') (γ' : Pat
   simp [-one_div,lt_of_le_of_lt ht one_half_lt_one,ht',(lt_div_iff' zero_lt_two).not.mp ht']
   exact unitInterval.smoothOn_double.mdifferentiableOn t ht
   exact (unitInterval.smoothOn_double.mdifferentiableOn t ht).mono (Set.inter_subset_right _ _)
-  rw [pathderivWithin,pathderivWithin,mfderivWithin_zero_of_not_mdifferentiableWithinAt hγ,
-    mfderivWithin_zero_of_not_mdifferentiableWithinAt _]
-  simp
+  rw [pathderivWithin_zero_of_not_mdifferentiableWithinAt I hγ,
+    pathderivWithin_zero_of_not_mdifferentiableWithinAt I _,smul_zero]
   exact (trans_mdifferentiableWithinAt_left_iff I γ γ' ht).not.mpr hγ
 
 lemma Path.trans_pathderivWithin_left' {p p' p'' : M} (γ : Path p p') (γ' : Path p' p'')
@@ -709,9 +716,8 @@ lemma Path.trans_pathderivWithin_right {p p' p'' : M} (γ : Path p p') (γ' : Pa
   simp [-one_div,(by linarith : ¬ 2 * t.val - 1 < 1)]
   exact unitInterval.smoothOn_double'.mdifferentiableOn t ht
   exact (unitInterval.smoothOn_double'.mdifferentiableOn t ht).mono (Set.inter_subset_right _ _)
-  rw [pathderivWithin,pathderivWithin,mfderivWithin_zero_of_not_mdifferentiableWithinAt hγ',
-    mfderivWithin_zero_of_not_mdifferentiableWithinAt _]
-  simp
+  rw [pathderivWithin_zero_of_not_mdifferentiableWithinAt I hγ',
+    pathderivWithin_zero_of_not_mdifferentiableWithinAt I _,smul_zero]
   exact (trans_mdifferentiableWithinAt_right_iff I γ γ' ht).not.mpr hγ'
 
 lemma Path.trans_pathderivWithin_right' {p p' p'' : M} (γ : Path p p') (γ' : Path p' p'')
@@ -756,23 +762,49 @@ lemma Path.trans_mdifferentiableAt_mid_iff {p p' p'' : M} (γ : Path p p') (γ' 
     simp [((Fin.eq_zero i) ▸ rfl : x 0 = x i)]
   rw [hx,map_smul,map_smul,h]
 
-lemma Path.trans_pathderiv {p p' p'' : M} {γ : Path p p'} {γ' : Path p' p''} {t : unitInterval} :
+lemma Path.trans_mdifferentiable_iff {p p' p'' : M} (γ : Path p p') (γ' : Path p' p'') :
+    MDifferentiable (𝓡∂ 1) I (γ.trans γ') ↔ MDifferentiable (𝓡∂ 1) I γ ∧
+      MDifferentiable (𝓡∂ 1) I γ' ∧ pathderiv I γ 1 = pathderiv I γ' 0 := by
+  refine' ⟨fun h => ⟨fun t => _,fun t => _,_⟩,fun ⟨hγ,hγ',h⟩ t => _⟩
+  rw [←unitInterval.double_half t,←trans_mdifferentiableWithinAt_left_iff' I γ γ' _]
+  exact (h _).mdifferentiableWithinAt
+  rw [unitInterval.coe_half_eq]; linarith [t.2.2]
+  rw [←unitInterval.double'_half' t,←trans_mdifferentiableWithinAt_right_iff' I γ γ' _]
+  exact (h _).mdifferentiableWithinAt
+  rw [unitInterval.coe_half'_eq]; linarith [t.2.1]
+  refine' ((trans_mdifferentiableAt_mid_iff I γ γ').mp (h _)).2.2
+  by_cases ht : t.val < 1 / 2
+  exact (trans_mdifferentiableAt_left_iff I γ γ' ht).mpr (hγ _)
+  by_cases ht' : 1 / 2 < t.val
+  exact (trans_mdifferentiableAt_right_iff I γ γ' ht').mpr (hγ' _)
+  convert (trans_mdifferentiableAt_mid_iff I γ γ').mpr ⟨hγ _,hγ' _,h⟩
+  exact Subtype.ext (eq_of_le_of_not_lt (le_of_not_lt ht') ht)
+
+lemma Path.trans_pathderiv {p p' p'' : M} (γ : Path p p') (γ' : Path p' p'') {t : unitInterval} :
     pathderiv I (γ.trans γ') t =
-      if ht : t.val < 1 / 2 then (2 : ℝ) • pathderiv I γ (unitInterval.double t)
-      else if ht : t.val > 1 / 2 then (2 : ℝ) • pathderiv I γ' (unitInterval.double' t)
+      if t.val < 1 / 2 then (2 : ℝ) • pathderiv I γ (unitInterval.double t)
+      else if t.val > 1 / 2 then (2 : ℝ) • pathderiv I γ' (unitInterval.double' t)
       else if pathderiv I γ 1 = pathderiv I γ' 0 then (2 : ℝ) • pathderiv I γ 1 else 0 := by
   by_cases ht : t.val < 1 / 2
-  all_goals simp only [ht,dite_true,dite_false]
+  all_goals simp only [ht,ite_true,ite_false]
   exact trans_pathderiv_left I γ γ' ht
   by_cases ht' : 1 / 2 < t.val
-  all_goals simp only [ht',dite_true,dite_false]
+  all_goals simp only [ht',ite_true,ite_false]
   exact trans_pathderiv_right I γ γ' ht'
-  have ht'' := eq_of_le_of_not_lt (le_of_not_lt ht') ht
-  have ht''' : t = unitInterval.one_half := Subtype.ext ht''
+  rw [(Subtype.ext (eq_of_le_of_not_lt (le_of_not_lt ht') ht) : t = unitInterval.one_half)]
   by_cases h : pathderiv I γ 1 = pathderiv I γ' 0
   simp_rw [eq_true h,ite_true]
-  have h' := (trans_mdifferentiableAt_mid_iff I γ γ').mpr ⟨by sorry,by sorry,h⟩
-  rw [ht''',←pathderivWithin_eq_pathderiv I (unitInterval.uniqueMDiffOn_left _ (by simp)) h',
-    trans_pathderivWithin_left' I γ γ' (by simp),unitInterval.double_one_half]
+  by_cases hγ : MDifferentiableAt (𝓡∂ 1) I γ 1
+  by_cases hγ' : MDifferentiableAt (𝓡∂ 1) I γ' 0
+  have h' := (trans_mdifferentiableAt_mid_iff I γ γ').mpr ⟨hγ,hγ',h⟩
+  rw [←pathderivWithin_eq_pathderiv I (unitInterval.uniqueMDiffOn_left _ (by simp)) h',
+    ←unitInterval.double_one_half,trans_pathderivWithin_left' I γ γ' (by simp)]
+  rw [h,pathderiv_zero_of_not_mdifferentiableAt I hγ',smul_zero,
+    pathderiv_zero_of_not_mdifferentiableAt I ((trans_mdifferentiableAt_mid_iff I γ γ').not.mpr _)]
+  tauto
+  rw [pathderiv_zero_of_not_mdifferentiableAt I hγ,smul_zero,
+    pathderiv_zero_of_not_mdifferentiableAt I ((trans_mdifferentiableAt_mid_iff I γ γ').not.mpr _)]
+  tauto
   simp only [h,ite_false]
-  all_goals sorry
+  apply pathderiv_zero_of_not_mdifferentiableAt I
+  refine' (trans_mdifferentiableAt_mid_iff I γ γ').not.mpr (by tauto)
