@@ -159,7 +159,7 @@ lemma smooth_symm : Smooth (𝓡∂ 1) (𝓡∂ 1) σ := fun t => by
   exact ((contDiff_const (c := 1)).sub contDiff_id).contDiffWithinAt
   simp [proj,Set.coe_projIcc,hx.out]
 
-def symm_toDiffeomorph : Diffeomorph (𝓡∂ 1) (𝓡∂ 1) I I ⊤ where
+def symm_toDiffeo : Diffeomorph (𝓡∂ 1) (𝓡∂ 1) I I ⊤ where
   toFun := σ
   invFun := σ
   left_inv := symm_symm
@@ -275,9 +275,11 @@ lemma half'_zero : half' 0 = one_half := by ext; simp
 
 lemma half'_one : half' 1 = 1 := by ext; simp
 
+@[simp]
 lemma double_half (t : I) : double (half t) = t := by
   ext; simp [mul_div_cancel',t.2.2]
 
+@[simp]
 lemma double'_half' (t : I) : double' (half' t) = t := by
   ext; simp [mul_div_cancel',t.2.1]
 
@@ -290,6 +292,16 @@ lemma half_double {t : I} (ht : t.val ≤ 1 / 2) : half (double t) = t := by
 
 lemma half'_double' {t : I} (ht : 1 / 2 ≤ t.val) : half' (double' t) = t := by
   ext; rw [coe_half'_eq,coe_double'_eq,max_eq_right]; ring; linarith
+
+lemma range_half : Set.range half = {s | s.val ≤ 1 / 2} := by
+  refine' (Set.range_eq_iff _ _).mpr ⟨fun t => _,fun t ht => _⟩
+  simp [-one_div,div_le_div_of_le two_pos.le t.2.2]
+  exact ⟨double t,half_double ht.out⟩
+
+lemma range_half' : Set.range half' = {s | 1 / 2 ≤ s.val} := by
+  refine' (Set.range_eq_iff _ _).mpr ⟨fun t => _,fun t ht => _⟩
+  simp [-one_div,show 1 / 2 ≤ (t.val + 1) / 2 by linarith [t.2.1]]
+  exact ⟨double' t,half'_double' ht.out⟩
 
 lemma smoothOn_double :
     SmoothOn (𝓡∂ 1) (𝓡∂ 1) double {s | s.val ≤ 1 / 2} := fun t ht => by

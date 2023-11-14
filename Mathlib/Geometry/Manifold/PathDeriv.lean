@@ -96,23 +96,79 @@ variable  {p q : M} {γ : Path p q}
 lemma symm_mdifferentiableWithinAt_iff {s : Set unitInterval} {t : unitInterval} :
     MDifferentiableWithinAt (𝓡∂ 1) I γ.symm s t ↔
       MDifferentiableWithinAt (𝓡∂ 1) I γ (unitInterval.symm '' s) (unitInterval.symm t) := by
-  have h {p q : M} (γ : Path p q) (s : Set unitInterval) (t : unitInterval) : MDifferentiableWithinAt (𝓡∂ 1) I γ.symm s t →
-      MDifferentiableWithinAt (𝓡∂ 1) I γ (unitInterval.symm '' s) (unitInterval.symm t) := fun h' => by
-    rw [←Function.comp.right_id γ,←unitInterval.symm_comp_symm,←Function.comp.assoc _ _ _]
-    rw [←unitInterval.symm_symm_image s,←unitInterval.symm_symm t] at h'
-    exact h'.comp _ unitInterval.smooth_symm.mdifferentiableWithinAt (Set.subset_preimage_image _ _)
-  have h' := h γ.symm (unitInterval.symm '' s) (unitInterval.symm t)
-  rw [unitInterval.symm_symm_image s,unitInterval.symm_symm t,symm_symm] at h'
-  exact ⟨h γ s t,h'⟩
+  refine' ⟨fun h => symm_symm (γ := γ) ▸ _,fun h => _⟩
+  rw [←unitInterval.symm_symm t] at h
+  refine' h.comp _ unitInterval.smooth_symm.mdifferentiableWithinAt _
+  simp [←Set.preimage_comp,subset_rfl]
+  refine' h.comp _ unitInterval.smooth_symm.mdifferentiableWithinAt _
+  exact s.subset_preimage_image _
 
 lemma symm_mdifferentiableAt_iff {t : unitInterval} :
     MDifferentiableAt (𝓡∂ 1) I γ.symm t ↔ MDifferentiableAt (𝓡∂ 1) I γ (unitInterval.symm t) := by
   have h {p q : M} (γ : Path p q) (t : unitInterval) :
       MDifferentiableAt (𝓡∂ 1) I γ.symm t → MDifferentiableAt (𝓡∂ 1) I γ (unitInterval.symm t) := fun h' => by
     rw [←Function.comp.right_id γ,←unitInterval.symm_comp_symm,←Function.comp.assoc _ _ _]
-    exact MDifferentiableAt.comp (unitInterval.symm t) ((unitInterval.symm_symm t).symm ▸ h') unitInterval.smooth_symm.mdifferentiableAt
+    exact ((unitInterval.symm_symm t).symm ▸ h').comp _ unitInterval.smooth_symm.mdifferentiableAt
   have h' := unitInterval.symm_symm t ▸ (@symm_symm _ _ _ _ γ) ▸ (h γ.symm (unitInterval.symm t))
   exact ⟨h γ t,h'⟩
+
+lemma symm_mdifferentiableOn_iff {s : Set unitInterval} :
+    MDifferentiableOn (𝓡∂ 1) I γ.symm s ↔ MDifferentiableOn (𝓡∂ 1) I γ (unitInterval.symm '' s) := by
+  refine' ⟨fun h t ht => _,fun h t ht => _⟩
+  refine' unitInterval.symm_symm t ▸ (symm_mdifferentiableWithinAt_iff I).mp (h _ _)
+  exact (unitInterval.symm_symm_image s) ▸ (Set.mem_image_of_mem _ ht)
+  exact (symm_mdifferentiableWithinAt_iff I).mpr (h _ (s.mem_image_of_mem _ ht))
+
+lemma symm_mdifferentiable_iff : MDifferentiable (𝓡∂ 1) I γ.symm ↔ MDifferentiable (𝓡∂ 1) I γ := by
+  refine' ⟨fun h t => _,fun h t => _⟩
+  exact unitInterval.symm_symm t ▸ (symm_mdifferentiableAt_iff I).mp (h _)
+  exact (symm_mdifferentiableAt_iff I).mpr (h _)
+
+lemma symm_contMDiffWithinAt_iff {n : ℕ∞} {s : Set unitInterval} {t : unitInterval} :
+    ContMDiffWithinAt (𝓡∂ 1) I n γ.symm s t ↔
+      ContMDiffWithinAt (𝓡∂ 1) I n γ (unitInterval.symm '' s) (unitInterval.symm t) := by
+  refine' ⟨fun h => symm_symm (γ := γ) ▸ _,fun h => _⟩
+  rw [←unitInterval.symm_symm t] at h
+  refine' h.comp _ unitInterval.smooth_symm.contMDiff.contMDiffAt.contMDiffWithinAt _
+  simp [Set.mapsTo_id]
+  refine' h.comp _ unitInterval.smooth_symm.contMDiff.contMDiffAt.contMDiffWithinAt _
+  exact s.subset_preimage_image _
+
+lemma symm_contMDiffAt_iff {n : ℕ∞} {t : unitInterval} :
+    ContMDiffAt (𝓡∂ 1) I n γ.symm t ↔ ContMDiffAt (𝓡∂ 1) I n γ (unitInterval.symm t) := by
+  have h {p q : M} (γ : Path p q) (t : unitInterval) :
+      ContMDiffAt (𝓡∂ 1) I n γ.symm t → ContMDiffAt (𝓡∂ 1) I n γ (unitInterval.symm t) := fun h' => by
+    rw [←Function.comp.right_id γ,←unitInterval.symm_comp_symm,←Function.comp.assoc _ _ _]
+    exact ((unitInterval.symm_symm t).symm ▸ h').comp _ unitInterval.smooth_symm.contMDiff.contMDiffAt
+  have h' := unitInterval.symm_symm t ▸ (@symm_symm _ _ _ _ γ) ▸ (h γ.symm (unitInterval.symm t))
+  exact ⟨h γ t,h'⟩
+
+lemma symm_contMDiffOn_iff {n : ℕ∞} {s : Set unitInterval} :
+    ContMDiffOn (𝓡∂ 1) I n γ.symm s ↔ ContMDiffOn (𝓡∂ 1) I n γ (unitInterval.symm '' s) := by
+  refine' ⟨fun h t ht => _,fun h t ht => _⟩
+  refine' unitInterval.symm_symm t ▸ (symm_contMDiffWithinAt_iff I).mp (h _ _)
+  exact (unitInterval.symm_symm_image s) ▸ (Set.mem_image_of_mem _ ht)
+  exact (symm_contMDiffWithinAt_iff I).mpr (h _ (s.mem_image_of_mem _ ht))
+
+lemma symm_contMDiff_iff {n : ℕ∞} : ContMDiff (𝓡∂ 1) I n γ.symm ↔ ContMDiff (𝓡∂ 1) I n γ := by
+  refine' ⟨fun h t => _,fun h t => _⟩
+  exact unitInterval.symm_symm t ▸ (symm_contMDiffAt_iff I).mp (h _)
+  exact (symm_contMDiffAt_iff I).mpr (h _)
+
+lemma symm_smoothWithinAt_iff {s : Set unitInterval} {t : unitInterval} :
+    SmoothWithinAt (𝓡∂ 1) I γ.symm s t ↔
+      SmoothWithinAt (𝓡∂ 1) I γ (unitInterval.symm '' s) (unitInterval.symm t) :=
+  symm_contMDiffWithinAt_iff I
+
+lemma symm_smoothAt_iff {t : unitInterval} :
+    SmoothAt (𝓡∂ 1) I γ.symm t ↔ SmoothAt (𝓡∂ 1) I γ (unitInterval.symm t) :=
+  symm_contMDiffAt_iff I
+
+lemma symm_smoothOn_iff {s : Set unitInterval} :
+    SmoothOn (𝓡∂ 1) I γ.symm s ↔ SmoothOn (𝓡∂ 1) I γ (unitInterval.symm '' s) :=
+  symm_contMDiffOn_iff I
+
+lemma symm_smooth_iff : Smooth (𝓡∂ 1) I γ.symm ↔ Smooth (𝓡∂ 1) I γ := symm_contMDiff_iff I
 
 lemma pathderivWithin_of_symm {s : Set unitInterval} {t : unitInterval}
     (hst : UniqueMDiffWithinAt (𝓡∂ 1) s t) : pathderivWithin I γ.symm s t =
@@ -134,7 +190,7 @@ lemma pathderivWithin_of_symm {s : Set unitInterval} {t : unitInterval}
 
 lemma pathderiv_of_symm {t : unitInterval} :
     pathderiv I γ.symm t = -pathderiv I γ (unitInterval.symm t) := by
-  have h : Set.range unitInterval.symm = Set.univ := unitInterval.symm_toDiffeomorph.toEquiv.range_eq_univ
+  have h : Set.range unitInterval.symm = Set.univ := unitInterval.symm_toDiffeo.toEquiv.range_eq_univ
   rw [←pathderivWithin_univ,pathderivWithin_of_symm I (uniqueMDiffWithinAt_univ (𝓡∂ 1))]
   simp [h]
 
@@ -237,6 +293,145 @@ lemma trans_mdifferentiableAt_right_iff {t : unitInterval} (ht : t.val > 1 / 2) 
   rw [←(γ.trans γ').symm_symm,trans_symm,symm_mdifferentiableAt_iff,
     trans_mdifferentiableAt_left_iff I _ _ (by rw [unitInterval.coe_symm_eq]; linarith),
     symm_mdifferentiableAt_iff,unitInterval.double_symm,unitInterval.symm_symm]
+
+lemma trans_mdifferentiableOn_left {s : Set unitInterval} :
+    MDifferentiableOn (𝓡∂ 1) I (γ.trans γ') (unitInterval.double ⁻¹' s ∩ {s | s.val ≤ 1 / 2}) ↔
+      MDifferentiableOn (𝓡∂ 1) I γ s := by
+  refine' ⟨fun h t ht => _,fun h t ht => _⟩
+  rw [←unitInterval.double_half t,←trans_mdifferentiableWithinAt_left_iff I γ γ' _]
+  exact h _ (by simp [-one_div,ht,div_le_div_of_le two_pos.le t.2.2])
+  simp [-one_div,div_le_div_of_le two_pos.le t.2.2]
+  refine' (trans_mdifferentiableWithinAt_left_iff I γ γ' ht.2.out).mpr (h _ _)
+  exact Set.mem_preimage.mp ht.1
+
+lemma trans_mdifferentiableOn_right {s : Set unitInterval} :
+    MDifferentiableOn (𝓡∂ 1) I (γ.trans γ') (unitInterval.double' ⁻¹' s ∩ {s | 1 / 2 ≤ s.val}) ↔
+      MDifferentiableOn (𝓡∂ 1) I γ' s := by
+  refine' ⟨fun h t ht => _,fun h t ht => _⟩
+  rw [←unitInterval.double'_half' t,←trans_mdifferentiableWithinAt_right_iff I γ γ' _]
+  exact h _ (by simp [-one_div,ht,show 1 / 2 ≤ (t.val +1 ) / 2 by linarith [t.2.1]])
+  simp [-one_div,show 1 / 2 ≤ (t.val +1 ) / 2 by linarith [t.2.1]]
+  refine' (trans_mdifferentiableWithinAt_right_iff I γ γ' ht.2.out).mpr (h _ _)
+  exact Set.mem_preimage.mp ht.1
+
+lemma trans_contMDiffWithinAt_left_iff {n : ℕ∞} {t : unitInterval} (ht : t.val ≤ 1 / 2)
+    {u : Set unitInterval} :
+    ContMDiffWithinAt (𝓡∂ 1) I n (γ.trans γ') (unitInterval.double ⁻¹' u ∩ {s | s.val ≤ 1 / 2}) t ↔
+      ContMDiffWithinAt (𝓡∂ 1) I n γ u (unitInterval.double t) := by
+  refine' ⟨fun hγ => _,fun hγ => _⟩
+  rw [←trans_comp_half (γ' := γ')]
+  refine' ((unitInterval.half_double ht).symm ▸ hγ).comp _ _ _
+  exact unitInterval.smooth_half.contMDiff.contMDiffAt.contMDiffWithinAt
+  simp [-one_div,←Set.preimage_comp,unitInterval.double_comp_half,subset_rfl,Set.mapsTo',
+    (show u ⊆ {s | s.val / 2 ≤ 1 / 2} by exact fun s _ => div_le_div_of_le two_pos.le s.2.2)]
+  have hs := (unitInterval.double ⁻¹' u).inter_subset_right {s | s.val ≤ 1 / 2}
+  have h := ((unitInterval.smoothOn_double t ht).mono hs).of_le (m := n) le_top
+  exact (hγ.comp t h (Set.inter_subset_left _ _)).congr (fun t ht => trans_eqOn_left ht.2) (trans_eqOn_left ht)
+
+lemma trans_contMDiffWithinAt_left_iff' {n : ℕ∞} {t : unitInterval} (ht : t.val ≤ 1 / 2) :
+    ContMDiffWithinAt (𝓡∂ 1) I n (γ.trans γ') {s | s.val ≤ 1 / 2} t ↔
+      ContMDiffAt (𝓡∂ 1) I n γ (unitInterval.double t) := by
+  rw [←contMDiffWithinAt_univ,←Set.univ_inter {s : unitInterval | s.val ≤ 1 / 2}]
+  exact Set.preimage_univ ▸ trans_contMDiffWithinAt_left_iff I γ γ' ht
+
+lemma trans_contMDiffAt_left_iff {n : ℕ∞} {t : unitInterval} (ht : t.val < 1 / 2) :
+    ContMDiffAt (𝓡∂ 1) I n (γ.trans γ') t ↔
+      ContMDiffAt (𝓡∂ 1) I n γ (unitInterval.double t) := by
+  simp_rw [←contMDiffWithinAt_univ]
+  rw [←contMDiffWithinAt_inter (t := {s | s.val ≤ 1 / 2})]
+  exact Set.preimage_univ ▸ trans_contMDiffWithinAt_left_iff I γ γ' ht.le
+  exact (mem_nhds_subtype _ t _).mpr ⟨Set.Iic (1 / 2),⟨Iic_mem_nhds ht,subset_of_eq rfl⟩⟩
+
+lemma trans_contMDiffWithinAt_right_iff {n : ℕ∞} {t : unitInterval} (ht : 1 / 2 ≤ t.val)
+    {u : Set unitInterval} :
+    ContMDiffWithinAt (𝓡∂ 1) I n (γ.trans γ') (unitInterval.double' ⁻¹' u ∩ {s | 1 / 2 ≤ s.val}) t ↔
+      ContMDiffWithinAt (𝓡∂ 1) I n γ' u (unitInterval.double' t) := by
+  refine' ⟨fun hγ' => _, fun hγ' => _⟩
+  rw [←trans_comp_half' (γ := γ)]
+  refine' ((unitInterval.half'_double' ht).symm ▸ hγ').comp _ _ _
+  exact unitInterval.smooth_half'.contMDiff.contMDiffAt.contMDiffWithinAt
+  simp [-one_div,←Set.preimage_comp,unitInterval.double'_comp_half',subset_rfl,Set.mapsTo',
+    (show u ⊆ {s | 1 / 2 ≤ (s.val + 1) / 2} by exact fun s _ => Set.mem_setOf.mpr (by linarith [s.2.1]))]
+  have hs := (unitInterval.double' ⁻¹' u).inter_subset_right {s | 1 / 2 ≤ s.val}
+  have h := ((unitInterval.smoothOn_double' t ht).mono hs).of_le (m := n) le_top
+  exact (hγ'.comp t h (Set.inter_subset_left _ _)).congr (fun t ht => trans_eqOn_right ht.2) (trans_eqOn_right ht)
+
+lemma trans_contMDiffWithinAt_right_iff' {n : ℕ∞} {t : unitInterval} (ht : 1 / 2 ≤ t.val) :
+    ContMDiffWithinAt (𝓡∂ 1) I n (γ.trans γ') {s | 1 / 2 ≤ s.val} t ↔
+      ContMDiffAt (𝓡∂ 1) I n γ' (unitInterval.double' t) := by
+  rw [←contMDiffWithinAt_univ,←Set.univ_inter {s : unitInterval | 1 / 2 ≤ s.val}]
+  exact Set.preimage_univ ▸ trans_contMDiffWithinAt_right_iff I γ γ' ht
+
+lemma trans_contMDiffAt_right_iff {n : ℕ∞} {t : unitInterval} (ht : t.val > 1 / 2) :
+    ContMDiffAt (𝓡∂ 1) I n (γ.trans γ') t ↔
+      ContMDiffAt (𝓡∂ 1) I n γ' (unitInterval.double' t) := by
+  rw [←(γ.trans γ').symm_symm,trans_symm,symm_contMDiffAt_iff,
+    trans_contMDiffAt_left_iff I _ _ (by rw [unitInterval.coe_symm_eq]; linarith),
+    symm_contMDiffAt_iff,unitInterval.double_symm,unitInterval.symm_symm]
+
+lemma trans_contMDiffOn_left {n : ℕ∞} {s : Set unitInterval} :
+    ContMDiffOn (𝓡∂ 1) I n (γ.trans γ') (unitInterval.double ⁻¹' s ∩ {s | s.val ≤ 1 / 2}) ↔
+      ContMDiffOn (𝓡∂ 1) I n γ s := by
+  refine' ⟨fun h t ht => _,fun h t ht => _⟩
+  rw [←unitInterval.double_half t,←trans_contMDiffWithinAt_left_iff I γ γ' _]
+  exact h _ (by simp [-one_div,ht,div_le_div_of_le two_pos.le t.2.2])
+  simp [-one_div,div_le_div_of_le two_pos.le t.2.2]
+  refine' (trans_contMDiffWithinAt_left_iff I γ γ' ht.2.out).mpr (h _ _)
+  exact Set.mem_preimage.mp ht.1
+
+lemma trans_contMDiffOn_right {n : ℕ∞} {s : Set unitInterval} :
+    ContMDiffOn (𝓡∂ 1) I n (γ.trans γ') (unitInterval.double' ⁻¹' s ∩ {s | 1 / 2 ≤ s.val}) ↔
+      ContMDiffOn (𝓡∂ 1) I n γ' s := by
+  refine' ⟨fun h t ht => _,fun h t ht => _⟩
+  rw [←unitInterval.double'_half' t,←trans_contMDiffWithinAt_right_iff I γ γ' _]
+  exact h _ (by simp [-one_div,ht,show 1 / 2 ≤ (t.val +1 ) / 2 by linarith [t.2.1]])
+  simp [-one_div,show 1 / 2 ≤ (t.val +1 ) / 2 by linarith [t.2.1]]
+  refine' (trans_contMDiffWithinAt_right_iff I γ γ' ht.2.out).mpr (h _ _)
+  exact Set.mem_preimage.mp ht.1
+
+lemma trans_smoothWithinAt_left_iff {t : unitInterval} (ht : t.val ≤ 1 / 2)
+    {u : Set unitInterval} :
+    SmoothWithinAt (𝓡∂ 1) I (γ.trans γ') (unitInterval.double ⁻¹' u ∩ {s | s.val ≤ 1 / 2}) t ↔
+      SmoothWithinAt (𝓡∂ 1) I γ u (unitInterval.double t) :=
+  trans_contMDiffWithinAt_left_iff I γ γ' ht
+
+lemma trans_smoothWithinAt_left_iff' {t : unitInterval} (ht : t.val ≤ 1 / 2) :
+    SmoothWithinAt (𝓡∂ 1) I (γ.trans γ') {s | s.val ≤ 1 / 2} t ↔
+      SmoothAt (𝓡∂ 1) I γ (unitInterval.double t) :=
+  trans_contMDiffWithinAt_left_iff' I γ γ' ht
+
+lemma trans_smoothAt_left_iff {t : unitInterval} (ht : t.val < 1 / 2) :
+    SmoothAt (𝓡∂ 1) I (γ.trans γ') t ↔
+      SmoothAt (𝓡∂ 1) I γ (unitInterval.double t) :=
+  trans_contMDiffAt_left_iff I γ γ' ht
+
+lemma trans_smoothWithinAt_right_iff {t : unitInterval} (ht : 1 / 2 ≤ t.val)
+    {u : Set unitInterval} :
+    SmoothWithinAt (𝓡∂ 1) I (γ.trans γ') (unitInterval.double' ⁻¹' u ∩ {s | 1 / 2 ≤ s.val}) t ↔
+      SmoothWithinAt (𝓡∂ 1) I γ' u (unitInterval.double' t) :=
+  trans_contMDiffWithinAt_right_iff I γ γ' ht
+
+lemma trans_smoothWithinAt_right_iff' {t : unitInterval} (ht : 1 / 2 ≤ t.val) :
+    SmoothWithinAt (𝓡∂ 1) I (γ.trans γ') {s | 1 / 2 ≤ s.val} t ↔
+      SmoothAt (𝓡∂ 1) I γ' (unitInterval.double' t) :=
+  trans_contMDiffWithinAt_right_iff' I γ γ' ht
+
+lemma trans_smoothAt_right_iff {t : unitInterval} (ht : t.val > 1 / 2) :
+    SmoothAt (𝓡∂ 1) I (γ.trans γ') t ↔
+      SmoothAt (𝓡∂ 1) I γ' (unitInterval.double' t) :=
+  trans_contMDiffAt_right_iff I γ γ' ht
+
+lemma trans_smoothOn_left {s : Set unitInterval} :
+    SmoothOn (𝓡∂ 1) I (γ.trans γ') (unitInterval.double ⁻¹' s ∩ {s | s.val ≤ 1 / 2}) ↔
+      SmoothOn (𝓡∂ 1) I γ s :=
+  trans_contMDiffOn_left I γ γ'
+
+lemma trans_smoothOn_right {s : Set unitInterval} :
+    SmoothOn (𝓡∂ 1) I (γ.trans γ') (unitInterval.double' ⁻¹' s ∩ {s | 1 / 2 ≤ s.val}) ↔
+      SmoothOn (𝓡∂ 1) I γ' s :=
+  trans_contMDiffOn_right I γ γ'
+
+example : True := by tauto
 
 lemma trans_pathderivWithin_left {t : unitInterval} (ht : t.val ≤ 1 / 2) {u : Set unitInterval}
     (hu : UniqueMDiffWithinAt (𝓡∂ 1) (unitInterval.double ⁻¹' u ∩ {s | s.val ≤ 1 / 2}) t) :
