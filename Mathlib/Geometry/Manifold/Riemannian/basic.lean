@@ -53,34 +53,70 @@ instance [iM: Metric I M] (p : M) : NormedAddCommGroup (TangentSpace I p) :=
 instance innerProductSpace [Metric I M] (p : M) : InnerProductSpace ℝ (TangentSpace I p) :=
   InnerProductSpace.ofCore _
 
-def length [Metric I M] {p q : M} (γ : Path p q) :=
+section Length
+
+/-! ### Length of paths. -/
+
+variable [Metric I M]
+
+def length {p q : M} (γ : Path p q) :=
   ∫ t, ‖pathderiv I γ t‖
 
-lemma length_eq_intervalIntegral [Metric I M] {p q : M} (γ : Path p q) : length I M γ =
-    ∫ t in (0:ℝ)..1, if ht : t ∈ unitInterval then ‖pathderiv I γ ⟨t,ht⟩‖ else 0 := by
+lemma length_eq_intervalIntegral {p q : M} (γ : Path p q) : length I M γ =
+    ∫ t in (0:ℝ)..1, ‖pathderiv I γ (unitInterval.proj t)‖ := by
   simp_rw [intervalIntegral.integral_of_le zero_le_one,←MeasureTheory.integral_Icc_eq_integral_Ioc,
-    MeasureTheory.set_integral_eq_subtype measurableSet_Icc,
-    fun t => eq_true (Subtype.mem t),dite_true,length]
+    MeasureTheory.set_integral_eq_subtype measurableSet_Icc,length]
+  congr; ext t; rw [unitInterval.proj_val t]
 
-lemma length_nonneg [Metric I M] {p q : M} (γ : Path p q) : 0 ≤ length I M γ :=
-  MeasureTheory.integral_nonneg (fun t => by simp)
+lemma length_nonneg {p q : M} (γ : Path p q) : 0 ≤ length I M γ :=
+  MeasureTheory.integral_nonneg (fun _ => norm_nonneg _)
 
 @[simp]
-lemma length_of_const [Metric I M] {p : M} : length I M (Path.refl p) = 0 := by
+lemma length_of_const {p : M} : length I M (Path.refl p) = 0 := by
   simp [length,pathderiv,Path.refl]
 
 @[simp]
-lemma length_of_symm [Metric I M] {p q : M} {γ : Path p q} : length I M (Path.symm γ) = length I M γ := by
-  have h : ∀ t, (if ht : t ∈ unitInterval then ‖pathderiv I γ (unitInterval.symm ⟨t,ht⟩)‖ else 0) =
-      (fun t => if ht : t ∈ unitInterval then ‖pathderiv I γ ⟨t,ht⟩‖ else 0) (1-t) := fun t => by
-    simp [and_comm,unitInterval.symm]
-  simp_rw [length_eq_intervalIntegral,Path.pathderiv_of_symm,norm_neg,h,
-    intervalIntegral.integral_comp_sub_left (fun t => if ht : t ∈ unitInterval then ‖pathderiv I γ ⟨t,ht⟩‖ else 0) 1,
-    sub_self,sub_zero]
+lemma length_of_symm {p q : M} {γ : Path p q} : length I M (Path.symm γ) = length I M γ := by
+  simp_rw [length_eq_intervalIntegral,Path.pathderiv_of_symm,norm_neg]
+  have h' := sub_zero (1 : ℝ) ▸ sub_self (1 : ℝ) ▸ intervalIntegral.integral_comp_sub_left
+    (a := 0) (b := 1) (fun x => ‖pathderiv I γ (unitInterval.proj x)‖) 1
+  convert h' using 2; ext x
+  rw [Path.coe_symm,Function.comp_apply,fun t => unitInterval.symm_proj t]
 
-lemma length_of_trans [Metric I M] {p p' p'' : M} (γ : Path p p') (γ' : Path p' p'') :
+lemma length_of_trans [Metric I M] {p p' p'' : M} (γ : Path p p') (γ' : Path p' p'')
+    (h₁ : IntervalIntegrable (fun t => ‖pathderiv I (γ.trans γ') (unitInterval.proj t)‖)
+      MeasureTheory.volume 0 (1 / 2))
+    (h₂ : IntervalIntegrable (fun t => ‖pathderiv I (γ.trans γ') (unitInterval.proj t)‖)
+      MeasureTheory.volume (1 / 2) 1) :
     length I M (γ.trans γ') = length I M γ + length I M γ' := by
-  sorry
+  rw [length_eq_intervalIntegral,←intervalIntegral.integral_add_adjacent_intervals h₁ h₂]
+  congr
+  rw [←zero_div 2]
+  rw [←intervalIntegral.inv_smul_integral_comp_div,smul_eq_mul,←intervalIntegral.integral_const_mul]
+  rw [intervalIntegral.integral_of_le zero_le_one,MeasureTheory.integral_Ioc_eq_integral_Ioo]
+  rw [MeasureTheory.set_integral_congr measurableSet_Ioo (g := fun t => ‖pathderiv I γ
+    (unitInterval.proj t)‖) _]
+  rw [←MeasureTheory.integral_Ioc_eq_integral_Ioo,←intervalIntegral.integral_of_le zero_le_one,
+    length_eq_intervalIntegral]
+  intro t ⟨ht,ht'⟩; simp only
+  rw [Path.trans_pathderiv_left I γ γ' _,←unitInterval.half_proj ⟨ht.le,ht'.le⟩,
+    unitInterval.double_half _,←Function.comp_apply (f := γ.trans γ'),Path.trans_comp_half]
+  simp [norm_smul]
+  simp [-one_div,unitInterval.proj,Set.projIcc,one_half_pos,div_lt_div_of_lt two_pos ht']
+  rw [←zero_add (1 / 2),←zero_div 2]
+  nth_rewrite 2 [←add_halves' 1]
+  rw [←intervalIntegral.inv_smul_integral_comp_div_add,smul_eq_mul,
+    ←intervalIntegral.integral_const_mul,intervalIntegral.integral_of_le zero_le_one,
+    MeasureTheory.set_integral_congr measurableSet_Ioc (g := fun t => ‖pathderiv I γ'
+      (unitInterval.proj t)‖) _,
+    ←intervalIntegral.integral_of_le zero_le_one,length_eq_intervalIntegral]
+  intro t ⟨ht,ht'⟩; simp only
+  rw [Path.trans_pathderiv_right I γ γ' _,div_add_div_same,←unitInterval.half'_proj ⟨ht.le,ht'⟩,
+    unitInterval.double'_half',←Function.comp_apply (f := γ.trans γ'),Path.trans_comp_half']
+  simp [norm_smul]
+  simp [-one_div,unitInterval.proj,Set.projIcc,half_pos ht]
+
+end Length
 
 class RiemannianManifold extends Metric I M where
   edist : M → M → ENNReal-- := fun p q => ⨅ (γ : Path p q) (hγ : Smooth (𝓡∂ 1) I γ), ENNReal.some ⟨length I M γ,length_nonneg I M γ⟩

@@ -43,7 +43,15 @@ lemma proj_val (t : I) : proj t.val = t := by simp [proj]
 lemma val_proj (ht : t ∈ I) : (proj t).val = t := by
   simp [proj,Set.projIcc,ht.out]
 
-lemma proj_comp_val : proj ∘ Subtype.val = id := funext fun t => by simp [proj]
+lemma proj_comp_val : proj ∘ Subtype.val = id := funext proj_val
+
+lemma symm_proj (t : ℝ) : σ (proj t) = proj (1 - t) := by
+  ext
+  by_cases ht : t ≤ 1
+  by_cases ht' : 0 ≤ t
+  simp [proj,Set.projIcc,ht,ht']
+  simp [proj,Set.projIcc,ht,le_of_not_le ht']
+  simp [proj,Set.projIcc,le_of_not_le ht]
 
 lemma smooth_val : Smooth (𝓡∂ 1) 𝓘(ℝ, ℝ) ((↑) : I → ℝ) := fun t => by
   have hS : ∀ s:ℝ, s<1 → {x : ℝ¹ | x 0 ≤ 1} ∈ nhds (fun _i => s : ℝ¹) := fun s hs => by
@@ -292,6 +300,14 @@ lemma half_double {t : I} (ht : t.val ≤ 1 / 2) : half (double t) = t := by
 
 lemma half'_double' {t : I} (ht : 1 / 2 ≤ t.val) : half' (double' t) = t := by
   ext; rw [coe_half'_eq,coe_double'_eq,max_eq_right]; ring; linarith
+
+lemma half_proj (ht : t ∈ I) : half (proj t) = proj (t / 2) := by
+  ext; simp [proj,Set.projIcc,ht.out.1,ht.out.2,show t / 2 ≤ 1 by linarith [ht.out.2],
+    show 0 ≤ t / 2 by linarith [ht.out.1]]
+
+lemma half'_proj (ht : t ∈ I) : half' (proj t) = proj ((t + 1) / 2) := by
+  ext; simp [proj,Set.projIcc,ht.out.1,ht.out.2,show (t + 1) / 2 ≤ 1 by linarith [ht.out.2],
+    show 0 ≤ (t + 1) / 2 by linarith [ht.out.1]]
 
 lemma range_half : Set.range half = {s | s.val ≤ 1 / 2} := by
   refine' (Set.range_eq_iff _ _).mpr ⟨fun t => _,fun t ht => _⟩
